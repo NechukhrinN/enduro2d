@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/high/assets/texture_asset.hpp>
@@ -24,15 +24,23 @@ namespace e2d
         const library& library, str_view address)
     {
         return library.load_asset_async<image_asset>(address)
-            .then([](const image_asset::load_result& texture_data){
-                return the<deferrer>().do_in_main_thread([texture_data](){
-                    const texture_ptr content = the<render>().create_texture(
-                        texture_data->content());
-                    if ( !content ) {
-                        throw texture_asset_loading_exception();
-                    }
-                    return texture_asset::create(content);
+        .then([
+            address = str(address)
+        ](const image_asset::load_result& texture_data){
+            return the<deferrer>().do_in_main_thread([
+                texture_data,
+                address = std::move(address)
+            ](){
+                E2D_PROFILER_SCOPE_EX("texture_asset.create_texture", {
+                    {"address", address}
                 });
+                const texture_ptr content = the<render>().create_texture(
+                    texture_data->content());
+                if ( !content ) {
+                    throw texture_asset_loading_exception();
+                }
+                return texture_asset::create(content);
             });
+        });
     }
 }

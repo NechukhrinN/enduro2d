@@ -1,10 +1,12 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/core/vfs.hpp>
+
+#include <enduro2d/core/profiler.hpp>
 
 #include <3rdparty/miniz/miniz.h>
 
@@ -80,8 +82,8 @@ namespace e2d
     public:
         std::mutex mutex;
         stdex::jobber worker{1};
-        hash_map<str, url> aliases;
-        hash_map<str, file_source_uptr> schemes;
+        flat_map<str, url> aliases;
+        flat_map<str, file_source_uptr> schemes;
     public:
         url resolve_url(const url& url, u8 level = 0) const {
             if ( level > 32 ) {
@@ -98,7 +100,7 @@ namespace e2d
             const auto resolved_url = resolve_url(url);
             const auto scheme_iter = schemes.find(resolved_url.scheme());
             return (scheme_iter != schemes.cend() && scheme_iter->second)
-                ? stdex::invoke(
+                ? std::invoke(
                     std::forward<F>(f),
                     scheme_iter->second,
                     resolved_url.path())
@@ -108,31 +110,44 @@ namespace e2d
 
     vfs::vfs()
     : state_(new state()){}
-
     vfs::~vfs() noexcept = default;
+
+    stdex::jobber& vfs::worker() noexcept {
+        std::lock_guard<std::mutex> guard(state_->mutex);
+        return state_->worker;
+    }
+
+    const stdex::jobber& vfs::worker() const noexcept {
+        std::lock_guard<std::mutex> guard(state_->mutex);
+        return state_->worker;
+    }
 
     bool vfs::register_scheme(str_view scheme, file_source_uptr source) {
         std::lock_guard<std::mutex> guard(state_->mutex);
         return (source && source->valid())
-            ? state_->schemes.insert(
-                std::make_pair(scheme, std::move(source))).second
+            ? state_->schemes.emplace(scheme, std::move(source)).second
             : false;
     }
 
-    bool vfs::unregister_scheme(str_view scheme) {
+    bool vfs::unregister_scheme(str_view scheme) noexcept {
         std::lock_guard<std::mutex> guard(state_->mutex);
-        return state_->schemes.erase(scheme) > 0;
+        const auto iter = state_->schemes.find(scheme);
+        return iter != state_->schemes.end()
+            ? (state_->schemes.erase(iter), true)
+            : false;
     }
 
     bool vfs::register_scheme_alias(str_view scheme, url alias) {
         std::lock_guard<std::mutex> guard(state_->mutex);
-        return state_->aliases.insert(
-            std::make_pair(scheme, alias)).second;
+        return state_->aliases.emplace(scheme, std::move(alias)).second;
     }
 
-    bool vfs::unregister_scheme_alias(str_view scheme) {
+    bool vfs::unregister_scheme_alias(str_view scheme) noexcept {
         std::lock_guard<std::mutex> guard(state_->mutex);
-        return state_->aliases.erase(scheme) > 0;
+        const auto iter = state_->aliases.find(scheme);
+        return iter != state_->aliases.end()
+            ? (state_->aliases.erase(iter), true)
+            : false;
     }
 
     bool vfs::exists(const url& url) const {
@@ -159,16 +174,20 @@ namespace e2d
             }, output_stream_uptr());
     }
 
-    bool vfs::load(const url& url, buffer& dst) const {
-        return load_async(url)
-            .then([&dst](auto&& src){
-                dst = std::forward<decltype(src)>(src);
-                return true;
-            }).get_or_default(false);
+    std::optional<buffer> vfs::load(const url& url) const {
+        E2D_PROFILER_SCOPE_EX("vfs.sync_load", {
+            {"url", url.schemepath()}
+        });
+        return load_async(url).then([](auto&& src){
+            return std::optional<buffer>(std::forward<decltype(src)>(src));
+        }).get_or_default(std::nullopt);
     }
 
     stdex::promise<buffer> vfs::load_async(const url& url) const {
         return state_->worker.async([this, url](){
+            E2D_PROFILER_SCOPE_EX("vfs.load_async", {
+                {"url", url.schemepath()}
+            });
             buffer content;
             const input_stream_uptr stream = read(url);
             if ( !stream || !streams::try_read_tail(content, stream) ) {
@@ -178,16 +197,20 @@ namespace e2d
         });
     }
 
-    bool vfs::load_as_string(const url& url, str& dst) const {
-        return load_as_string_async(url)
-            .then([&dst](auto&& src){
-                dst = std::forward<decltype(src)>(src);
-                return true;
-            }).get_or_default(false);
+    std::optional<str> vfs::load_as_string(const url& url) const {
+        E2D_PROFILER_SCOPE_EX("vfs.sync_load_as_string", {
+            {"url", url.schemepath()}
+        });
+        return load_as_string_async(url).then([](auto&& src){
+            return std::optional<str>(std::forward<decltype(src)>(src));
+        }).get_or_default(std::nullopt);
     }
 
     stdex::promise<str> vfs::load_as_string_async(const url& url) const {
         return state_->worker.async([this, url](){
+            E2D_PROFILER_SCOPE_EX("vfs.load_as_string_async", {
+                {"url", url.schemepath()}
+            });
             str content;
             const input_stream_uptr stream = read(url);
             if ( !stream || !streams::try_read_tail(content, stream) ) {
@@ -326,8 +349,8 @@ namespace e2d
             mz_zip_archive_file_stat file_stat;
             if ( mz_zip_reader_file_stat(state_->archive.get(), i, &file_stat) ) {
                 const str_view filename{file_stat.m_filename};
-                if ( filename.length() > parent.length() && filename.starts_with(parent) ) {
-                    func(file_stat.m_filename, file_stat.m_is_directory);
+                if ( filename.size() > parent.size() && strings::starts_with(filename, parent) ) {
+                    func(file_stat.m_filename, !!file_stat.m_is_directory);
                 }
             }
         }

@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_core.hpp"
@@ -80,7 +80,7 @@ TEST_CASE("input"){
             input i;
             const mouse& m = i.mouse();
 
-            std::vector<mouse_button> buttons;
+            vector<mouse_button> buttons;
             m.extract_pressed_buttons(buttons);
             m.extract_just_pressed_buttons(buttons);
             m.extract_just_released_buttons(buttons);
@@ -208,7 +208,7 @@ TEST_CASE("input"){
             input i;
             const keyboard& k = i.keyboard();
 
-            std::vector<keyboard_key> keys;
+            vector<keyboard_key> keys;
             k.extract_pressed_keys(keys);
             k.extract_just_pressed_keys(keys);
             k.extract_just_released_keys(keys);

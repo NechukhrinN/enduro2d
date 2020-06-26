@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_utils.hpp"
@@ -147,7 +147,7 @@ TEST_CASE("buffer") {
         REQUIRE((std::memcmp(b1.data(), "hello world", 11) == 0 && b1.size() == 11));
     }
     {
-    #ifndef E2D_BUILD_WITH_SANITIZER
+    #ifndef E2D_BUILD_WITH_ASAN
         const std::size_t msize = std::numeric_limits<std::size_t>::max();
         REQUIRE_THROWS_AS(buffer(msize), std::bad_alloc);
         REQUIRE_THROWS_AS(buffer(nullptr, msize), std::bad_alloc);
@@ -169,6 +169,22 @@ TEST_CASE("buffer") {
             REQUIRE((std::memcmp(b1.data(), "hello", 5) == 0 && b1.size() == 5));
         }
     #endif
+    }
+    {
+        const u8 data[] = {1,2,3};
+        buffer b(data, std::size(data) * sizeof(data[0]));
+
+        const auto con_str = [](std::string acc, u8 ch){
+            return acc + std::to_string(ch);
+        };
+
+        REQUIRE(std::accumulate(b.begin(), b.end(), std::string(), con_str) == "123");
+        REQUIRE(std::accumulate(std::as_const(b).begin(), std::as_const(b).end(), std::string(), con_str) == "123");
+        REQUIRE(std::accumulate(b.cbegin(), b.cend(), std::string(), con_str) == "123");
+
+        REQUIRE(std::accumulate(b.rbegin(), b.rend(), std::string(), con_str) == "321");
+        REQUIRE(std::accumulate(std::as_const(b).rbegin(), std::as_const(b).rend(), std::string(), con_str) == "321");
+        REQUIRE(std::accumulate(b.crbegin(), b.crend(), std::string(), con_str) == "321");
     }
 }
 
@@ -200,10 +216,15 @@ TEST_CASE("buffer_view") {
         REQUIRE(v4.data() == b1.data());
         REQUIRE(v4.size() == 10);
 
-        array<u32,5> b2{'h', 'e', 'l', 'l', 'o'};
+        std::array<u32,5> b2{'h', 'e', 'l', 'l', 'o'};
         buffer_view v5(b2);
         REQUIRE(v5.data() == b2.data());
         REQUIRE(v5.size() == 20);
+
+        u32 b3[3] = {10, 20, 30};
+        buffer_view v6(b3);
+        REQUIRE(v6.data() == &b3[0]);
+        REQUIRE(v6.size() == 12);
     }
     {
         const char* s0 = "hell";
@@ -256,5 +277,14 @@ TEST_CASE("buffer_view") {
 
         REQUIRE(buffer_view("hello",5) != buffer_view("hello, world",12));
         REQUIRE_FALSE(buffer_view("hello",5) == buffer_view("hello, world",12));
+    }
+    {
+        buffer_view v0("hello",5);
+        buffer b0 = buffer(v0);
+        REQUIRE(v0 == b0);
+
+        buffer_view v1;
+        buffer b1 = buffer(v1);
+        REQUIRE(v1 == b1);
     }
 }

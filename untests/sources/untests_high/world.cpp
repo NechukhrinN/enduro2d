@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_high.hpp"
@@ -14,8 +14,7 @@ namespace
         safe_starter_initializer() {
             modules::initialize<starter>(0, nullptr,
                 starter::parameters(
-                    engine::parameters("world_untests", "enduro2d")
-                        .without_graphics(true)));
+                    engine::parameters("world_untests", "enduro2d")));
         }
 
         ~safe_starter_initializer() noexcept {
@@ -31,8 +30,8 @@ TEST_CASE("world") {
 
     SECTION("registry") {
         auto e = w.registry().create_entity();
-        REQUIRE(cw.registry().alive_entity(e));
-        REQUIRE(w.registry().destroy_entity(e));
-        REQUIRE_FALSE(cw.registry().alive_entity(e));
+        REQUIRE(cw.registry().valid_entity(e));
+        w.registry().destroy_entity(e);
+        REQUIRE_FALSE(cw.registry().valid_entity(e));
     }
 }

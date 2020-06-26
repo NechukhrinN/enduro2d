@@ -1,29 +1,34 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
-#ifndef E2D_INCLUDE_GUARD_B13171AF5FD34D6284271BD2F4B1F6DD
-#define E2D_INCLUDE_GUARD_B13171AF5FD34D6284271BD2F4B1F6DD
 #pragma once
 
 #include "_utils.hpp"
+
+#include "buffer.hpp"
+#include "buffer_view.hpp"
 #include "streams.hpp"
 
 namespace e2d
 {
+    class read_file;
+    using read_file_uptr = std::unique_ptr<read_file>;
+
     class read_file : public input_stream {
     public:
         virtual const str& path() const noexcept = 0;
     };
-    using read_file_uptr = std::unique_ptr<read_file>;
+
+    class write_file;
+    using write_file_uptr = std::unique_ptr<write_file>;
 
     class write_file : public output_stream {
     public:
         virtual const str& path() const noexcept = 0;
     };
-    using write_file_uptr = std::unique_ptr<write_file>;
 }
 
 namespace e2d
@@ -32,7 +37,7 @@ namespace e2d
     write_file_uptr make_write_file(str_view path, bool append) noexcept;
 }
 
-namespace e2d { namespace filesystem
+namespace e2d::filesystem
 {
     bool remove(str_view path);
     bool exists(str_view path);
@@ -71,22 +76,20 @@ namespace e2d { namespace filesystem
 
     bool try_read_all(str& dst, str_view path) noexcept;
     bool try_read_all(buffer& dst, str_view path) noexcept;
+    bool try_write_all(str_view src, str_view path, bool append) noexcept;
+    bool try_write_all(buffer_view src, str_view path, bool append) noexcept;
 
-    bool try_write_all(const str& src, str_view path, bool append) noexcept;
-    bool try_write_all(const buffer& src, str_view path, bool append) noexcept;
-
-    enum class predef_path {
-        home,
-        appdata,
-        desktop,
-        working,
-        documents,
-        resources,
-        executable
-    };
+    ENUM_HPP_CLASS_DECL(predef_path, u8,
+        (home)
+        (appdata)
+        (desktop)
+        (working)
+        (documents)
+        (resources)
+        (executable))
+    ENUM_HPP_REGISTER_TRAITS(predef_path)
 
     bool extract_predef_path(str& dst, predef_path path_type);
-}}
+}
 
 #include "filesystem.inl"
-#endif

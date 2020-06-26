@@ -1,30 +1,44 @@
 cmake_minimum_required(VERSION 3.11 FATAL_ERROR)
+
+if(NOT DEFINED PROJECT_NAME)
+    set(E2D_BUILD_AS_STANDALONE ON)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.14"
+        CACHE STRING "Minimum OS X version to target for deployment" FORCE)
+endif()
+
 project(enduro2d)
 
-#
-# global warning mode
-#
+set(E2D_SYSTEM_NAME ${CMAKE_SYSTEM_NAME})
+set(E2D_ROOT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_compile_options(
-    $<$<PLATFORM_ID:Darwin>:-Wno-deprecated-declarations>)
+if(NOT E2D_BUILD_AS_STANDALONE)
+    set(E2D_SYSTEM_NAME ${E2D_SYSTEM_NAME} PARENT_SCOPE)
+    set(E2D_ROOT_DIRECTORY ${E2D_ROOT_DIRECTORY} PARENT_SCOPE)
+endif()
+
+set(E2D_ALL_C_CONFIGS "CMAKE_C_FLAGS")
+set(E2D_ALL_CXX_CONFIGS "CMAKE_CXX_FLAGS")
+
+if(CMAKE_BUILD_TYPE)
+    string(TOUPPER ${CMAKE_BUILD_TYPE} build_type)
+    set(E2D_ALL_C_CONFIGS "${E2D_ALL_C_CONFIGS}" "CMAKE_C_FLAGS_${build_type}")
+    set(E2D_ALL_CXX_CONFIGS "${E2D_ALL_CXX_CONFIGS}" "CMAKE_CXX_FLAGS_${build_type}")
+endif()
+
+foreach(type ${CMAKE_CONFIGURATION_TYPES})
+    string(TOUPPER ${type} build_type)
+    set(E2D_ALL_C_CONFIGS "${E2D_ALL_C_CONFIGS}" "CMAKE_C_FLAGS_${build_type}")
+    set(E2D_ALL_CXX_CONFIGS "${E2D_ALL_CXX_CONFIGS}" "CMAKE_CXX_FLAGS_${build_type}")
+endforeach()
 
 #
-# global linking mode
+# linking mode
 #
 
 if(MSVC)
-    option(USE_MSVC_RUNTIME_LIBRARY_DLL "Use MSVC runtime library DLL" OFF)
-    if(NOT USE_MSVC_RUNTIME_LIBRARY_DLL)
-        foreach(flag CMAKE_C_FLAGS
-                     CMAKE_C_FLAGS_DEBUG
-                     CMAKE_C_FLAGS_RELEASE
-                     CMAKE_C_FLAGS_MINSIZEREL
-                     CMAKE_C_FLAGS_RELWITHDEBINFO
-                     CMAKE_CXX_FLAGS
-                     CMAKE_CXX_FLAGS_DEBUG
-                     CMAKE_CXX_FLAGS_RELEASE
-                     CMAKE_CXX_FLAGS_MINSIZEREL
-                     CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+    option(E2D_BUILD_WITH_STATIC_CRT "Use static C runtime library" ON)
+    if(E2D_BUILD_WITH_STATIC_CRT)
+        foreach(flag ${E2D_ALL_C_CONFIGS} ${E2D_ALL_CXX_CONFIGS})
             if(${flag} MATCHES "/MD")
                 string(REGEX REPLACE "/MD" "/MT" ${flag} "${${flag}}")
             endif()
@@ -36,7 +50,7 @@ if(MSVC)
 endif(MSVC)
 
 #
-# global coverage mode
+# coverage mode
 #
 
 option(E2D_BUILD_WITH_COVERAGE "Build with coverage" OFF)
@@ -49,26 +63,26 @@ if(E2D_BUILD_WITH_COVERAGE AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
 endif()
 
 #
-# global sanitizer mode
+# sanitizer modes
 #
 
-option(E2D_BUILD_WITH_SANITIZER "Build with sanitizer" OFF)
-if(E2D_BUILD_WITH_SANITIZER AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
-    add_definitions(-DE2D_BUILD_WITH_SANITIZER)
+option(E2D_BUILD_WITH_ASAN "Build with address sanitizer" OFF)
+if(E2D_BUILD_WITH_ASAN AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+    add_definitions(-DE2D_BUILD_WITH_ASAN)
     set(E2D_SANITIZER_FLAGS "-fno-omit-frame-pointer -fsanitize=address")
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${E2D_SANITIZER_FLAGS}")
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${E2D_SANITIZER_FLAGS}")
     set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} ${E2D_SANITIZER_FLAGS}")
 endif()
 
-#
-# global compiling mode
-#
-
-if(MSVC)
-    add_definitions(/MP)
-    add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-endif(MSVC)
+option(E2D_BUILD_WITH_UBSAN "Build with undefined sanitizer" OFF)
+if(E2D_BUILD_WITH_UBSAN AND (CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+    add_definitions(-DE2D_BUILD_WITH_UBSAN)
+    set(E2D_SANITIZER_FLAGS "-fsanitize=undefined")
+    set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} ${E2D_SANITIZER_FLAGS}")
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} ${E2D_SANITIZER_FLAGS}")
+    set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} ${E2D_SANITIZER_FLAGS}")
+endif()
 
 #
 # e2d sources
@@ -102,25 +116,101 @@ file(GLOB_RECURSE E2D_3RDPARTY
 # e2d external 3rd party
 #
 
-find_package(OpenGL REQUIRED)
-find_package(Threads REQUIRED)
+set(USE_STATIC_CRT ${E2D_BUILD_WITH_STATIC_CRT} CACHE INTERNAL "" FORCE)
+set(USE_SYSTEM_CURL OFF CACHE INTERNAL "" FORCE)
+set(USE_EMBEDDED_CURL ON CACHE INTERNAL "" FORCE)
 
-if(APPLE)
-    find_library(Cocoa Cocoa)
-    find_library(IOKit IOKit)
-    find_library(CoreVideo CoreVideo)
-    find_library(Foundation Foundation)
-endif(APPLE)
+add_subdirectory(modules/curly.hpp)
+set_target_properties(curly.hpp libcurl PROPERTIES FOLDER modules)
 
-set(glew-cmake_BUILD_SHARED OFF CACHE BOOL "" FORCE)
-set(glew-cmake_BUILD_MULTI_CONTEXT OFF CACHE BOOL "" FORCE)
-add_subdirectory(modules/glew)
+add_subdirectory(modules/ecs.hpp)
+add_subdirectory(modules/enum.hpp)
+add_subdirectory(modules/flat.hpp)
+add_subdirectory(modules/promise.hpp)
 
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE INTERNAL "" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE INTERNAL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE INTERNAL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE INTERNAL "" FORCE)
+
 add_subdirectory(modules/glfw)
+set_target_properties(glfw PROPERTIES FOLDER modules)
+
+set(glew-cmake_BUILD_SHARED OFF CACHE INTERNAL "" FORCE)
+set(glew-cmake_BUILD_MULTI_CONTEXT OFF CACHE INTERNAL "" FORCE)
+
+add_subdirectory(modules/glew)
+set_target_properties(libglew_static PROPERTIES FOLDER modules)
+
+add_subdirectory(modules/spine/spine-c)
+set_target_properties(spine-c PROPERTIES FOLDER modules)
+
+if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        add_library(bass SHARED IMPORTED)
+        set_target_properties(bass PROPERTIES IMPORTED_IMPLIB
+            ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/linux/x86/libbass.so)
+        set_target_properties(bass PROPERTIES IMPORTED_LOCATION
+            ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/linux/x86/libbass.so)
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        add_library(bass SHARED IMPORTED)
+        set_target_properties(bass PROPERTIES IMPORTED_IMPLIB
+            ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/linux/x64/libbass.so)
+        set_target_properties(bass PROPERTIES IMPORTED_LOCATION
+            ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/linux/x64/libbass.so)
+    endif()
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+    add_library(bass SHARED IMPORTED)
+    set_target_properties(bass PROPERTIES IMPORTED_LOCATION
+        ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/macosx/libbass.dylib)
+elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+    if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+        add_library(bass SHARED IMPORTED)
+        set_target_properties(bass PROPERTIES IMPORTED_IMPLIB
+            ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/windows/x86/bass.lib)
+        set_target_properties(bass PROPERTIES IMPORTED_LOCATION
+            ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/windows/x86/bass.dll)
+    elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        add_library(bass SHARED IMPORTED)
+        set_target_properties(bass PROPERTIES IMPORTED_IMPLIB
+            ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/windows/x64/bass.lib)
+        set_target_properties(bass PROPERTIES IMPORTED_LOCATION
+            ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/windows/x64/bass.dll)
+    endif()
+endif()
+
+function(add_e2d_shared_libraries_to_target TO)
+    if(${CMAKE_SYSTEM_NAME} STREQUAL "Linux")
+        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+            add_custom_command(TARGET ${TO} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/linux/x86/libbass.so
+                $<TARGET_FILE_DIR:${TO}>)
+        elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+            add_custom_command(TARGET ${TO} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/linux/x64/libbass.so
+                $<TARGET_FILE_DIR:${TO}>)
+        endif()
+    elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Darwin")
+        add_custom_command(TARGET ${TO} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy
+            ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/macosx/libbass.dylib
+            $<TARGET_FILE_DIR:${TO}>)
+    elseif(${CMAKE_SYSTEM_NAME} STREQUAL "Windows")
+        if(CMAKE_SIZEOF_VOID_P EQUAL 4)
+            add_custom_command(TARGET ${TO} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/windows/x86/bass.dll
+                $<TARGET_FILE_DIR:${TO}>)
+        elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
+            add_custom_command(TARGET ${TO} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E copy
+                ${E2D_ROOT_DIRECTORY}/sources/3rdparty/bass/windows/x64/bass.dll
+                $<TARGET_FILE_DIR:${TO}>)
+        endif()
+    endif()
+endfunction(add_e2d_shared_libraries_to_target)
 
 #
 # e2d library target
@@ -136,58 +226,48 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR} FILES
     ${E2D_SOURCES}
     ${E2D_3RDPARTY})
 
-target_include_directories(${PROJECT_NAME}
-    PRIVATE headers
-    PRIVATE sources
-    PRIVATE modules/glew/include
-    PRIVATE modules/glfw/include)
+target_link_libraries(${PROJECT_NAME}
+    PUBLIC curly.hpp
+    PUBLIC ecs.hpp
+    PUBLIC enum.hpp
+    PUBLIC flat.hpp
+    PUBLIC promise.hpp)
 
-set_target_properties(${PROJECT_NAME} PROPERTIES
-    CXX_STANDARD 14
-    CXX_STANDARD_REQUIRED YES
-    CXX_EXTENSIONS NO)
+target_link_libraries(${PROJECT_NAME}
+    PRIVATE bass
+    PRIVATE glfw
+    PRIVATE libglew_static
+    PRIVATE spine-c
+    PRIVATE $<$<CXX_COMPILER_ID:MSVC>:winmm.lib>)
+
+target_include_directories(${PROJECT_NAME}
+    PUBLIC headers
+    PUBLIC headers/3rdparty
+    PUBLIC headers/3rdparty/lua
+    PUBLIC headers/3rdparty/imgui
+    PUBLIC headers/3rdparty/pugixml
+    PRIVATE sources
+    PRIVATE sources/3rdparty)
 
 target_compile_options(${PROJECT_NAME}
     PRIVATE
     $<$<CXX_COMPILER_ID:MSVC>:
-        /W4>
+        /W3 /MP /bigobj>
     PRIVATE
     $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
-        -Wall -Wextra -Wpedantic>)
+        -Wall -Wextra -Wpedantic>
+    PRIVATE
+    $<$<PLATFORM_ID:Darwin>:
+        -Wno-deprecated-declarations>)
 
-#
-# e2d public variables
-#
+target_compile_features(${PROJECT_NAME}
+    PUBLIC cxx_std_17)
 
-set(E2D_LIBRARIES
-    enduro2d
-    glfw
-    libglew_static
-    ${OPENGL_gl_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT})
-
-if(APPLE)
-    list(APPEND E2D_LIBRARIES
-        ${Cocoa}
-        ${IOKit}
-        ${CoreVideo}
-        ${Foundation})
-endif(APPLE)
-
-if(WIN32)
-    list(APPEND E2D_LIBRARIES
-        winmm.lib)
-endif(WIN32)
-
-set(E2D_INCLUDE_DIRS
-    ${CMAKE_CURRENT_SOURCE_DIR}/headers)
-
-get_directory_property(E2D_PARENT_DIRECTORY
-    PARENT_DIRECTORY)
-if(E2D_PARENT_DIRECTORY)
-    set(E2D_LIBRARIES ${E2D_LIBRARIES} PARENT_SCOPE)
-    set(E2D_INCLUDE_DIRS ${E2D_INCLUDE_DIRS} PARENT_SCOPE)
-endif(E2D_PARENT_DIRECTORY)
+target_compile_definitions(${PROJECT_NAME}
+    PUBLIC
+    $<$<CXX_COMPILER_ID:MSVC>:
+        -D_CRT_SECURE_NO_WARNINGS
+        -D_SCL_SECURE_NO_WARNINGS>)
 
 #
 # subdirectories

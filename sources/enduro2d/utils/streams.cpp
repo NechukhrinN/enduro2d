@@ -1,11 +1,10 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/utils/streams.hpp>
-#include <enduro2d/utils/buffer.hpp>
 
 namespace
 {
@@ -171,15 +170,15 @@ namespace e2d
         return *this;
     }
 
-    output_sequence& output_sequence::write_all(const buffer& src) noexcept {
+    output_sequence& output_sequence::write_all(str_view src) noexcept {
         return success_
             ? write(src.data(), src.size())
             : *this;
     }
 
-    output_sequence& output_sequence::write_all(const str& src) noexcept {
+    output_sequence& output_sequence::write_all(buffer_view src) noexcept {
         return success_
-            ? write(src.c_str(), src.size())
+            ? write(src.data(), src.size())
             : *this;
     }
 
@@ -211,7 +210,7 @@ namespace e2d
     }
 }
 
-namespace e2d { namespace streams
+namespace e2d::streams
 {
     bool try_read_tail(str& dst, const input_stream_uptr& stream) noexcept {
         return stream
@@ -229,7 +228,7 @@ namespace e2d { namespace streams
             : false;
     }
 
-    bool try_write_tail(const str& src, const output_stream_uptr& stream) noexcept {
+    bool try_write_tail(str_view src, const output_stream_uptr& stream) noexcept {
         return stream
             ? output_sequence(*stream)
                 .write_all(src)
@@ -237,11 +236,11 @@ namespace e2d { namespace streams
             : false;
     }
 
-    bool try_write_tail(const buffer& src, const output_stream_uptr& stream) noexcept {
+    bool try_write_tail(buffer_view src, const output_stream_uptr& stream) noexcept {
         return stream
             ? output_sequence(*stream)
                 .write_all(src)
                 .success()
             : false;
     }
-}}
+}

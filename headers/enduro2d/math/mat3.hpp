@@ -1,25 +1,23 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
 
 #include "_math.hpp"
-#include "quat.hpp"
 #include "trig.hpp"
 #include "unit.hpp"
 #include "vec2.hpp"
 #include "vec3.hpp"
-#include "vec4.hpp"
 
 namespace e2d
 {
     template < typename T >
     class mat3 final {
         static_assert(
-            std::is_arithmetic<T>::value,
+            std::is_arithmetic_v<T>,
             "type of 'mat3' must be arithmetic");
     public:
         using self_type = mat3;
@@ -30,20 +28,22 @@ namespace e2d
             {0, 1, 0},
             {0, 0, 1}};
     public:
-        static const mat3& zero() noexcept;
-        static const mat3& identity() noexcept;
+        static constexpr mat3 zero() noexcept;
+        static constexpr mat3 identity() noexcept;
     public:
-        mat3() noexcept = default;
-        mat3(const mat3& other) noexcept = default;
-        mat3& operator=(const mat3& other) noexcept = default;
+        constexpr mat3() noexcept = default;
+        constexpr mat3(const mat3& other) noexcept = default;
+        constexpr mat3& operator=(const mat3& other) noexcept = default;
 
-        mat3(const vec3<T>& row0,
-             const vec3<T>& row1,
-             const vec3<T>& row2) noexcept;
+        constexpr mat3(
+            const vec3<T>& row0,
+            const vec3<T>& row1,
+            const vec3<T>& row2) noexcept;
 
-        mat3(T m11, T m12, T m13,
-             T m21, T m22, T m23,
-             T m31, T m32, T m33) noexcept;
+        constexpr mat3(
+            T m11, T m12, T m13,
+            T m21, T m22, T m23,
+            T m31, T m32, T m33) noexcept;
 
         template < typename To >
         mat3<To> cast_to() const noexcept;
@@ -65,32 +65,30 @@ namespace e2d
 namespace e2d
 {
     template < typename T >
-    const mat3<T>& mat3<T>::zero() noexcept {
-        static const mat3<T> zero{
+    constexpr mat3<T> mat3<T>::zero() noexcept {
+        return {
             0, 0, 0,
             0, 0, 0,
             0, 0, 0};
-        return zero;
     }
 
     template < typename T >
-    const mat3<T>& mat3<T>::identity() noexcept {
-        static const mat3<T> identity{
+    constexpr mat3<T> mat3<T>::identity() noexcept {
+        return {
             1, 0, 0,
             0, 1, 0,
             0, 0, 1};
-        return identity;
     }
 
     template < typename T >
-    mat3<T>::mat3(
+    constexpr mat3<T>::mat3(
         const vec3<T>& row0,
         const vec3<T>& row1,
         const vec3<T>& row2) noexcept
     : rows{row0, row1, row2} {}
 
     template < typename T >
-    mat3<T>::mat3(
+    constexpr mat3<T>::mat3(
         T m11, T m12, T m13,
         T m21, T m22, T m23,
         T m31, T m32, T m33) noexcept
@@ -157,7 +155,7 @@ namespace e2d
     //
 
     template < typename T >
-    mat3<T> make_mat3(
+    constexpr mat3<T> make_mat3(
         const vec3<T>& row0,
         const vec3<T>& row1,
         const vec3<T>& row2) noexcept
@@ -166,7 +164,7 @@ namespace e2d
     }
 
     template < typename T >
-    mat3<T> make_mat3(
+    constexpr mat3<T> make_mat3(
         T m11, T m12, T m13,
         T m21, T m22, T m23,
         T m31, T m32, T m33) noexcept
@@ -195,8 +193,16 @@ namespace e2d
     }
 
     //
-    // (-) mat3
+    // (+,-) mat3
     //
+
+    template < typename T >
+    mat3<T> operator+(const mat3<T>& m) noexcept {
+        return {
+            +m.rows[0],
+            +m.rows[1],
+            +m.rows[2]};
+    }
 
     template < typename T >
     mat3<T> operator-(const mat3<T>& m) noexcept {
@@ -290,7 +296,7 @@ namespace e2d
     }
 }
 
-namespace e2d { namespace math
+namespace e2d::math
 {
     //
     // make_scale_matrix
@@ -302,14 +308,6 @@ namespace e2d { namespace math
             x, 0, 0,
             0, y, 0,
             0, 0, z};
-    }
-
-    template < typename T >
-    mat3<T> make_scale_matrix3(const vec4<T>& xyz) noexcept {
-        return make_scale_matrix3(
-            xyz.x,
-            xyz.y,
-            xyz.z);
     }
 
     template < typename T >
@@ -329,11 +327,11 @@ namespace e2d { namespace math
     }
 
     //
-    // make_rotation_matrix
+    // make_rotation_matrix (axis)
     //
 
     template < typename T, typename AngleTag >
-    std::enable_if_t<std::is_floating_point<T>::value, mat3<T>>
+    std::enable_if_t<std::is_floating_point_v<T>, mat3<T>>
     make_rotation_matrix3(
         const unit<T, AngleTag>& angle,
         T axis_x,
@@ -364,18 +362,6 @@ namespace e2d { namespace math
     template < typename T, typename AngleTag >
     mat3<T> make_rotation_matrix3(
         const unit<T, AngleTag>& angle,
-        const vec4<T>& axis_xyz) noexcept
-    {
-        return make_rotation_matrix3(
-            angle,
-            axis_xyz.x,
-            axis_xyz.y,
-            axis_xyz.z);
-    }
-
-    template < typename T, typename AngleTag >
-    mat3<T> make_rotation_matrix3(
-        const unit<T, AngleTag>& angle,
         const vec3<T>& axis_xyz) noexcept
     {
         return make_rotation_matrix3(
@@ -385,42 +371,56 @@ namespace e2d { namespace math
             axis_xyz.z);
     }
 
+    //
+    // make_rotation_matrix (euler)
+    //
+
     template < typename T, typename AngleTag >
     mat3<T> make_rotation_matrix3(
-        const unit<T, AngleTag>& angle,
-        const vec2<T>& axis_xy,
-        T axis_z) noexcept
+        const unit<T, AngleTag>& roll,
+        const unit<T, AngleTag>& pitch,
+        const unit<T, AngleTag>& yaw) noexcept
     {
-        return make_rotation_matrix3(
-            angle,
-            axis_xy.x,
-            axis_xy.y,
-            axis_z);
+        const T csr = math::cos(roll);
+        const T snr = math::sin(roll);
+
+        const T csp = math::cos(pitch);
+        const T snp = math::sin(pitch);
+
+        const T csy = math::cos(yaw);
+        const T sny = math::sin(yaw);
+
+        const T snr_snp = snr * snp;
+        const T csr_snp = csr * snp;
+
+        return {
+            csp * csy,                 csp * sny,                 -snp,
+            snr_snp * csy - csr * sny, snr_snp * sny + csr * csy, snr * csp,
+            csr_snp * csy + snr * sny, csr_snp * sny - snr * csy, csr * csp};
     }
 
     template < typename T >
-    mat3<T> make_rotation_matrix3(const quat<T>& q) noexcept {
-        const T x = q.x;
-        const T y = q.y;
-        const T z = q.z;
-        const T w = q.w;
+    mat3<T> make_rotation_matrix3(const vec3<T>& rpy) noexcept {
+        return make_rotation_matrix3(
+            make_rad(rpy.x),
+            make_rad(rpy.y),
+            make_rad(rpy.z));
+    }
 
-        const T xx = x * x;
-        const T xy = x * y;
-        const T xz = x * z;
-        const T xw = x * w;
+    //
+    // approximately
+    //
 
-        const T yy = y * y;
-        const T yz = y * z;
-        const T yw = y * w;
-
-        const T zz = z * z;
-        const T zw = z * w;
-
-        return {
-            T(1) - T(2) * (yy + zz), T(2) * (xy + zw),        T(2) * (xz - yw),
-            T(2) * (xy - zw),        T(1) - T(2) * (xx + zz), T(2) * (yz + xw),
-            T(2) * (xz + yw),        T(2) * (yz - xw),        T(1) - T(2) * (xx + yy)};
+    template < typename T >
+    bool approximately(
+        const mat3<T>& l,
+        const mat3<T>& r,
+        T precision = math::default_precision<T>()) noexcept
+    {
+        return
+            math::approximately(l.rows[0], r.rows[0], precision) &&
+            math::approximately(l.rows[1], r.rows[1], precision) &&
+            math::approximately(l.rows[2], r.rows[2], precision);
     }
 
     //
@@ -428,7 +428,7 @@ namespace e2d { namespace math
     //
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, std::pair<mat3<T>, bool>>
+    std::enable_if_t<std::is_floating_point_v<T>, std::pair<mat3<T>, bool>>
     inversed(
         const mat3<T>& m,
         T precision = math::default_precision<T>()) noexcept
@@ -477,4 +477,4 @@ namespace e2d { namespace math
             mm[1], mm[4], mm[7],
             mm[2], mm[5], mm[8]};
     }
-}}
+}

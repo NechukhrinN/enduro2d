@@ -1,14 +1,15 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
-#ifndef E2D_INCLUDE_GUARD_271E0872955E4A59980866CBF737BDC1
-#define E2D_INCLUDE_GUARD_271E0872955E4A59980866CBF737BDC1
 #pragma once
 
 #include "_utils.hpp"
+
+#include "buffer.hpp"
+#include "buffer_view.hpp"
 
 namespace e2d
 {
@@ -19,6 +20,9 @@ namespace e2d
         }
     };
 
+    class input_stream;
+    using input_stream_uptr = std::unique_ptr<input_stream>;
+
     class input_stream : private noncopyable {
     public:
         virtual ~input_stream() noexcept = default;
@@ -27,7 +31,9 @@ namespace e2d
         virtual std::size_t tell() const = 0;
         virtual std::size_t length() const noexcept = 0;
     };
-    using input_stream_uptr = std::unique_ptr<input_stream>;
+
+    class output_stream;
+    using output_stream_uptr = std::unique_ptr<output_stream>;
 
     class output_stream : private noncopyable {
     public:
@@ -37,7 +43,6 @@ namespace e2d
         virtual std::size_t tell() const = 0;
         virtual void flush() const = 0;
     };
-    using output_stream_uptr = std::unique_ptr<output_stream>;
 }
 
 namespace e2d
@@ -76,8 +81,8 @@ namespace e2d
 
         output_sequence& seek(std::ptrdiff_t offset, bool relative) noexcept;
         output_sequence& write(const void* src, std::size_t size) noexcept;
-        output_sequence& write_all(const str& src) noexcept;
-        output_sequence& write_all(const buffer& src) noexcept;
+        output_sequence& write_all(str_view src) noexcept;
+        output_sequence& write_all(buffer_view src) noexcept;
 
         output_sequence& flush() noexcept;
         output_sequence& flush_if(bool yesno) noexcept;
@@ -99,7 +104,7 @@ namespace e2d
     input_stream_uptr make_memory_stream(buffer data) noexcept;
 }
 
-namespace e2d { namespace streams
+namespace e2d::streams
 {
     bool try_read_tail(
         str& dst,
@@ -110,13 +115,12 @@ namespace e2d { namespace streams
         const input_stream_uptr& stream) noexcept;
 
     bool try_write_tail(
-        const str& src,
+        str_view src,
         const output_stream_uptr& stream) noexcept;
 
     bool try_write_tail(
-        const buffer& src,
+        buffer_view src,
         const output_stream_uptr& stream) noexcept;
-}}
+}
 
 #include "streams.inl"
-#endif

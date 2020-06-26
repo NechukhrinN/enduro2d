@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/utils/buffer.hpp>
@@ -30,6 +30,54 @@ namespace e2d
 
     buffer::buffer(const void* src, std::size_t size) {
         assign(src, size);
+    }
+
+    buffer::iterator buffer::begin() noexcept {
+        return data_.get();
+    }
+
+    buffer::const_iterator buffer::begin() const noexcept {
+        return data_.get();
+    }
+
+    buffer::const_iterator buffer::cbegin() const noexcept {
+        return data_.get();
+    }
+
+    buffer::iterator buffer::end() noexcept {
+        return data_.get() + size_;
+    }
+
+    buffer::const_iterator buffer::end() const noexcept {
+        return data_.get() + size_;
+    }
+
+    buffer::const_iterator buffer::cend() const noexcept {
+        return data_.get() + size_;
+    }
+
+    buffer::reverse_iterator buffer::rbegin() noexcept {
+        return reverse_iterator(end());
+    }
+
+    buffer::const_reverse_iterator buffer::rbegin() const noexcept {
+        return const_reverse_iterator(end());
+    }
+
+    buffer::const_reverse_iterator buffer::crbegin() const noexcept {
+        return const_reverse_iterator(end());
+    }
+
+    buffer::reverse_iterator buffer::rend() noexcept {
+        return reverse_iterator(begin());
+    }
+
+    buffer::const_reverse_iterator buffer::rend() const noexcept {
+        return const_reverse_iterator(begin());
+    }
+
+    buffer::const_reverse_iterator buffer::crend() const noexcept {
+        return const_reverse_iterator(begin());
     }
 
     buffer& buffer::fill(u8 ch) noexcept {
@@ -136,34 +184,6 @@ namespace e2d
     }
 
     bool operator!=(const buffer& l, const buffer& r) noexcept {
-        return !(l == r);
-    }
-
-    void swap(buffer_view& l, buffer_view& r) noexcept {
-        l.swap(r);
-    }
-
-    bool operator<(const buffer_view& l, const buffer_view& r) noexcept {
-        const void* ld = l.data();
-        const void* rd = r.data();
-        const std::size_t ls = l.size();
-        const std::size_t rs = r.size();
-        return
-            (ls < rs) ||
-            (ls == rs && ls > 0 && std::memcmp(ld, rd, ls) < 0);
-    }
-
-    bool operator==(const buffer_view& l, const buffer_view& r) noexcept {
-        const void* ld = l.data();
-        const void* rd = r.data();
-        const std::size_t ls = l.size();
-        const std::size_t rs = r.size();
-        return
-            (ls == rs) &&
-            (ls == 0 || std::memcmp(ld, rd, ls) == 0);
-    }
-
-    bool operator!=(const buffer_view& l, const buffer_view& r) noexcept {
         return !(l == r);
     }
 }

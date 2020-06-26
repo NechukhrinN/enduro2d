@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_math.hpp"
@@ -266,11 +266,5 @@ TEST_CASE("vec2") {
 
         REQUIRE(math::inverse_lerp(v2f(1,2), v2f(10,20), v2f(5.5f,11)) == v2f(0.5f));
         REQUIRE(math::inverse_lerp(v2f(1,2), v2f(10,20), v2f(5.5f,38)) == v2f(0.5f,2.f));
-    }
-    {
-        REQUIRE_FALSE(math::contains_nan(v2i(0,1)));
-        REQUIRE_FALSE(math::contains_nan(v2f(0.f,1.f)));
-        REQUIRE(math::contains_nan(v2f(0.f,std::numeric_limits<f32>::quiet_NaN())));
-        REQUIRE(math::contains_nan(v2f(std::numeric_limits<f32>::infinity(),1.f)));
     }
 }

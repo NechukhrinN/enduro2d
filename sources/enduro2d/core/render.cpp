@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "render_impl/render.hpp"
@@ -11,66 +11,62 @@ namespace
     using namespace e2d;
 
     struct pixel_type_description {
-        const char* cstr;
-        u32 bits_per_pixel;
+        u32 bytes_per_block;
         bool color;
         bool depth;
         bool stencil;
         pixel_declaration::pixel_type type;
         bool compressed;
+        v2u block_size;
     };
 
     const pixel_type_description pixel_type_descriptions[] = {
-        {"depth16",          16, false, true,  false, pixel_declaration::pixel_type::depth16,          false},
-        {"depth24",          24, false, true,  false, pixel_declaration::pixel_type::depth24,          false},
-        {"depth32",          32, false, true,  false, pixel_declaration::pixel_type::depth32,          false},
-        {"depth24_stencil8", 32, false, true,  true,  pixel_declaration::pixel_type::depth24_stencil8, false},
+        {2,  false, true,  false, pixel_declaration::pixel_type::depth16,          false, v2u(1,1)},
+        {3,  false, true,  false, pixel_declaration::pixel_type::depth24,          false, v2u(1,1)},
+        {4,  false, true,  true,  pixel_declaration::pixel_type::depth24_stencil8, false, v2u(1,1)},
 
-        {"rgb8",             24, true,  false, false, pixel_declaration::pixel_type::rgb8,             false},
-        {"rgba8",            32, true,  false, false, pixel_declaration::pixel_type::rgba8,            false},
+        {1,  true,  false, false, pixel_declaration::pixel_type::a8,               false, v2u(1,1)},
+        {1,  true,  false, false, pixel_declaration::pixel_type::l8,               false, v2u(1,1)},
+        {2,  true,  false, false, pixel_declaration::pixel_type::la8,              false, v2u(1,1)},
+        {3,  true,  false, false, pixel_declaration::pixel_type::rgb8,             false, v2u(1,1)},
+        {4,  true,  false, false, pixel_declaration::pixel_type::rgba8,            false, v2u(1,1)},
 
-        {"rgb_dxt1",          4, true,  false, false, pixel_declaration::pixel_type::rgb_dxt1,         true},
-        {"rgba_dxt1",         4, true,  false, false, pixel_declaration::pixel_type::rgba_dxt1,        true},
-        {"rgba_dxt3",         8, true,  false, false, pixel_declaration::pixel_type::rgba_dxt3,        true},
-        {"rgba_dxt5",         8, true,  false, false, pixel_declaration::pixel_type::rgba_dxt5,        true},
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgba_dxt1,        true,  v2u(4,4)},
+        {16, true,  false, false, pixel_declaration::pixel_type::rgba_dxt3,        true,  v2u(4,4)},
+        {16, true,  false, false, pixel_declaration::pixel_type::rgba_dxt5,        true,  v2u(4,4)},
 
-        {"rgb_pvrtc2",        2, true,  false, false, pixel_declaration::pixel_type::rgb_pvrtc2,       true},
-        {"rgb_pvrtc4",        4, true,  false, false, pixel_declaration::pixel_type::rgb_pvrtc4,       true},
-        {"rgba_pvrtc2",       2, true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc2,      true},
-        {"rgba_pvrtc4",       4, true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc4,      true},
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgb_etc1,         true,  v2u(4,4)},
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgb_etc2,         true,  v2u(4,4)},
+        {16, true,  false, false, pixel_declaration::pixel_type::rgba_etc2,        true,  v2u(4,4)},
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgb_a1_etc2,      true,  v2u(4,4)},
 
-        {"rgba_pvrtc2",       2, true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc2,      true},
-        {"rgba_pvrtc4",       4, true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc4,      true},
+        {16, true,  false, false, pixel_declaration::pixel_type::rgba_astc4x4,     true,  v2u(4,4)},
+        {16, true,  false, false, pixel_declaration::pixel_type::rgba_astc5x5,     true,  v2u(5,5)},
+        {16, true,  false, false, pixel_declaration::pixel_type::rgba_astc6x6,     true,  v2u(6,6)},
+        {16, true,  false, false, pixel_declaration::pixel_type::rgba_astc8x8,     true,  v2u(8,8)},
+        {16, true,  false, false, pixel_declaration::pixel_type::rgba_astc10x10,   true,  v2u(10,10)},
+        {16, true,  false, false, pixel_declaration::pixel_type::rgba_astc12x12,   true,  v2u(12,12)},
 
-        {"rgba_pvrtc2_v2",    2, true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc2_v2,   true},
-        {"rgba_pvrtc4_v2",    4, true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc4_v2,   true}
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgb_pvrtc2,       true,  v2u(8,4)},
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgb_pvrtc4,       true,  v2u(4,4)},
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc2,      true,  v2u(8,4)},
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc4,      true,  v2u(4,4)},
+
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc2_v2,   true,  v2u(8,4)},
+        {8,  true,  false, false, pixel_declaration::pixel_type::rgba_pvrtc4_v2,   true,  v2u(4,4)}
     };
 
     const pixel_type_description& get_pixel_type_description(pixel_declaration::pixel_type type) noexcept {
         const std::size_t index = math::numeric_cast<std::size_t>(utils::enum_to_underlying(type));
-        E2D_ASSERT(index < E2D_COUNTOF(pixel_type_descriptions));
+        E2D_ASSERT(index < std::size(pixel_type_descriptions));
         const pixel_type_description& desc = pixel_type_descriptions[index];
         E2D_ASSERT(desc.type == type);
         return desc;
     }
 
-    const char* index_element_cstr(index_declaration::index_type it) noexcept {
-        #define DEFINE_CASE(x) case index_declaration::index_type::x: return #x;
-        switch ( it ) {
-            DEFINE_CASE(unsigned_byte);
-            DEFINE_CASE(unsigned_short);
-            DEFINE_CASE(unsigned_int);
-            default:
-                E2D_ASSERT_MSG(false, "unexpected index type");
-                return "";
-        }
-        #undef DEFINE_CASE
-    }
-
     std::size_t index_element_size(index_declaration::index_type it) noexcept {
         #define DEFINE_CASE(x,y) case index_declaration::index_type::x: return y;
         switch ( it ) {
-            DEFINE_CASE(unsigned_byte, sizeof(u8));
             DEFINE_CASE(unsigned_short, sizeof(u16));
             DEFINE_CASE(unsigned_int, sizeof(u32));
             default:
@@ -130,10 +126,6 @@ namespace e2d
     // pixel_declaration
     //
 
-    const char* pixel_declaration::pixel_type_to_cstr(pixel_type pt) noexcept {
-        return get_pixel_type_description(pt).cstr;
-    }
-
     pixel_declaration::pixel_declaration(pixel_type type) noexcept
     : type_(type) {}
 
@@ -157,8 +149,20 @@ namespace e2d
         return get_pixel_type_description(type_).compressed;
     }
 
-    std::size_t pixel_declaration::bits_per_pixel() const noexcept {
-        return get_pixel_type_description(type_).bits_per_pixel;
+    v2u pixel_declaration::block_size() const noexcept {
+        return get_pixel_type_description(type_).block_size;
+    }
+
+    std::size_t pixel_declaration::bytes_per_block() const noexcept {
+        return get_pixel_type_description(type_).bytes_per_block;
+    }
+
+    std::size_t pixel_declaration::data_size_for_dimension(v2u dim) const noexcept {
+        const v2u bs = block_size();
+        const std::size_t bpb = bytes_per_block();
+        return bs.x > 0 && bs.y > 0 && bpb > 0
+            ? bpb * ((dim.x + bs.x - 1u) / bs.x) * ((dim.y + bs.y - 1u) / bs.y)
+            : 0u;
     }
 
     bool operator==(const pixel_declaration& l, const pixel_declaration& r) noexcept {
@@ -172,10 +176,6 @@ namespace e2d
     //
     // index_declaration
     //
-
-    const char* index_declaration::index_type_to_cstr(index_type it) noexcept {
-        return index_element_cstr(it);
-    }
 
     index_declaration::index_declaration(index_type type) noexcept
     : type_(type) {}
@@ -644,10 +644,9 @@ namespace e2d
         return *this;
     }
 
-    render::sampler_state& render::sampler_state::wrap(sampler_wrap st) noexcept {
-        s_wrap(st);
-        t_wrap(st);
-        r_wrap(st);
+    render::sampler_state& render::sampler_state::wrap(sampler_wrap s, sampler_wrap t) noexcept {
+        s_wrap(s);
+        t_wrap(t);
         return *this;
     }
 
@@ -658,11 +657,6 @@ namespace e2d
 
     render::sampler_state& render::sampler_state::t_wrap(sampler_wrap t) noexcept {
         t_wrap_ = t;
-        return *this;
-    }
-
-    render::sampler_state& render::sampler_state::r_wrap(sampler_wrap r) noexcept {
-        r_wrap_ = r;
         return *this;
     }
 
@@ -692,10 +686,6 @@ namespace e2d
 
     render::sampler_wrap render::sampler_state::t_wrap() const noexcept {
         return t_wrap_;
-    }
-
-    render::sampler_wrap render::sampler_state::r_wrap() const noexcept {
-        return r_wrap_;
     }
 
     render::sampler_min_filter render::sampler_state::min_filter() const noexcept {
@@ -1086,20 +1076,20 @@ namespace e2d
     // viewport_command
     //
 
-    render::viewport_command::viewport_command(const b2u& viewport_rect) noexcept
+    render::viewport_command::viewport_command(const b2i& viewport_rect) noexcept
     : viewport_rect_(viewport_rect) {}
 
-    render::viewport_command::viewport_command(const b2u& viewport_rect, const b2u& scissor_rect) noexcept
+    render::viewport_command::viewport_command(const b2i& viewport_rect, const b2i& scissor_rect) noexcept
     : viewport_rect_(viewport_rect)
     , scissor_rect_(scissor_rect)
     , scissoring_(true) {}
 
-    render::viewport_command& render::viewport_command::viewport_rect(const b2u& value) noexcept {
+    render::viewport_command& render::viewport_command::viewport_rect(const b2i& value) noexcept {
         viewport_rect_ = value;
         return *this;
     }
 
-    render::viewport_command& render::viewport_command::scissor_rect(const b2u& value) noexcept {
+    render::viewport_command& render::viewport_command::scissor_rect(const b2i& value) noexcept {
         scissor_rect_ = value;
         scissoring_ = true;
         return *this;
@@ -1110,11 +1100,11 @@ namespace e2d
         return *this;
     }
 
-    b2u& render::viewport_command::viewport_rect() noexcept {
+    b2i& render::viewport_command::viewport_rect() noexcept {
         return viewport_rect_;
     }
 
-    b2u& render::viewport_command::scissor_rect() noexcept {
+    b2i& render::viewport_command::scissor_rect() noexcept {
         return scissor_rect_;
     }
 
@@ -1122,11 +1112,11 @@ namespace e2d
         return scissoring_;
     }
 
-    const b2u& render::viewport_command::viewport_rect() const noexcept {
+    const b2i& render::viewport_command::viewport_rect() const noexcept {
         return viewport_rect_;
     }
 
-    const b2u& render::viewport_command::scissor_rect() const noexcept {
+    const b2i& render::viewport_command::scissor_rect() const noexcept {
         return scissor_rect_;
     }
 
@@ -1141,7 +1131,7 @@ namespace e2d
     render& render::execute(const command_value& command) {
         E2D_ASSERT(is_in_main_thread());
         E2D_ASSERT(!command.valueless_by_exception());
-        stdex::visit(command_value_visitor(*this), command);
+        std::visit(command_value_visitor(*this), command);
         return *this;
     }
 }
@@ -1232,7 +1222,6 @@ namespace e2d
         return l.texture() == r.texture()
             && l.s_wrap() == r.s_wrap()
             && l.t_wrap() == r.t_wrap()
-            && l.r_wrap() == r.r_wrap()
             && l.min_filter() == r.min_filter()
             && l.mag_filter() == r.mag_filter();
     }

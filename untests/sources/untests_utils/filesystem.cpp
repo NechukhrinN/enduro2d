@@ -1,13 +1,16 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_utils.hpp"
 using namespace e2d;
 
 TEST_CASE("filesystem") {
+    E2D_DEFER([](){
+        filesystem::remove_file("files_test");
+    });
     SECTION("files") {
         {
             auto f = make_write_file("files_test", false);

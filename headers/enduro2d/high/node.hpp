@@ -1,14 +1,14 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
-#ifndef E2D_INCLUDE_GUARD_8703CE4A74D94C3CA27ED91AFF906936
-#define E2D_INCLUDE_GUARD_8703CE4A74D94C3CA27ED91AFF906936
 #pragma once
 
 #include "_high.hpp"
+
+#include "gobject.hpp"
 
 namespace e2d
 {
@@ -29,29 +29,38 @@ namespace e2d
     public:
         virtual ~node() noexcept;
 
-        static node_iptr create(world& world);
-        static node_iptr create(world& world, const node_iptr& parent);
+        static node_iptr create();
+        static node_iptr create(const t2f& transform);
 
-        static node_iptr create(const ecs::entity& entity);
-        static node_iptr create(const ecs::entity& entity, const node_iptr& parent);
+        static node_iptr create(const node_iptr& parent);
+        static node_iptr create(const node_iptr& parent, const t2f& transform);
 
-        ecs::entity entity() noexcept;
-        ecs::const_entity entity() const noexcept;
+        static node_iptr create(gobject owner);
+        static node_iptr create(gobject owner, const t2f& transform);
 
-        void transform(const t3f& transform) noexcept;
-        const t3f& transform() const noexcept;
+        static node_iptr create(gobject owner, const node_iptr& parent);
+        static node_iptr create(gobject owner, const node_iptr& parent, const t2f& transform);
 
-        void translation(const v3f& translation) noexcept;
-        const v3f& translation() const noexcept;
+        void owner(gobject owner) noexcept;
+        gobject owner() const noexcept;
 
-        void rotation(const q4f& rotation) noexcept;
-        const q4f& rotation() const noexcept;
+        void transform(const t2f& transform) noexcept;
+        const t2f& transform() const noexcept;
 
-        void scale(const v3f& scale) noexcept;
-        const v3f& scale() const noexcept;
+        void translation(const v2f& translation) noexcept;
+        const v2f& translation() const noexcept;
+
+        void rotation(f32 rotation) noexcept;
+        f32 rotation() const noexcept;
+
+        void scale(const v2f& scale) noexcept;
+        const v2f& scale() const noexcept;
 
         const m4f& local_matrix() const noexcept;
         const m4f& world_matrix() const noexcept;
+
+        v4f local_to_world(const v4f& local) const noexcept;
+        v4f world_to_local(const v4f& world) const noexcept;
 
         node_iptr root() noexcept;
         const_node_iptr root() const noexcept;
@@ -76,6 +85,10 @@ namespace e2d
         bool add_child(
             const node_iptr& child) noexcept;
 
+        bool add_child_at(
+            const node_iptr& child,
+            std::size_t index) noexcept;
+
         bool add_child_to_back(
             const node_iptr& child) noexcept;
 
@@ -99,6 +112,17 @@ namespace e2d
         bool remove_child(
             const node_iptr& child) noexcept;
 
+        node_iptr remove_child_at(
+            std::size_t index) noexcept;
+
+        bool swap_children(
+            const node_iptr& child_l,
+            const node_iptr& child_r) noexcept;
+
+        bool swap_children_at(
+            std::size_t child_l,
+            std::size_t child_r) noexcept;
+
         bool send_backward() noexcept;
         bool bring_to_back() noexcept;
 
@@ -117,20 +141,14 @@ namespace e2d
         node_iptr next_sibling() noexcept;
         const_node_iptr next_sibling() const noexcept;
 
-        template < typename F >
-        void for_each_child(F&& f);
+        node_iptr child_at(std::size_t index) noexcept;
+        const_node_iptr child_at(std::size_t index) const noexcept;
 
-        template < typename F >
-        void for_each_child(F&& f) const;
-
-        template < typename Iter >
-        std::size_t extract_all_nodes(Iter iter);
-
-        template < typename Iter >
-        std::size_t extract_all_nodes(Iter iter) const;
+        std::pair<std::size_t, bool> child_index(
+            const const_node_iptr& child) const noexcept;
     protected:
-        node(world& world);
-        node(const ecs::entity& entity);
+        node() = default;
+        node(gobject owner);
     private:
         enum flag_masks : u32 {
             fm_dirty_local_matrix = 1u << 0,
@@ -141,8 +159,8 @@ namespace e2d
         void update_local_matrix_() const noexcept;
         void update_world_matrix_() const noexcept;
     private:
-        t3f transform_;
-        ecs::entity entity_;
+        t2f transform_;
+        gobject owner_;
         node* parent_{nullptr};
         node_children children_;
     private:
@@ -152,5 +170,116 @@ namespace e2d
     };
 }
 
+namespace e2d::nodes
+{
+    class options final {
+    public:
+        options() = default;
+
+        options& reversed(bool value) noexcept;
+        options& recursive(bool value) noexcept;
+        options& include_root(bool value) noexcept;
+
+        [[nodiscard]] bool reversed() const noexcept;
+        [[nodiscard]] bool recursive() const noexcept;
+        [[nodiscard]] bool include_root() const noexcept;
+    private:
+        enum flag_masks : u8 {
+            fm_reversed = 1u << 0,
+            fm_recursive = 1u << 1,
+            fm_include_root = 1u << 2,
+        };
+    private:
+        std::underlying_type_t<flag_masks> flags_{};
+    };
+}
+
+namespace e2d::nodes
+{
+    template < typename Node, typename F >
+    bool for_each_child(
+        const intrusive_ptr<Node>& root,
+        F&& f,
+        const options& opts = options());
+
+    template < typename Node, typename F >
+    bool for_each_parent(
+        const intrusive_ptr<Node>& root,
+        F&& f,
+        const options& opts = options());
+}
+
+namespace e2d::nodes
+{
+    template < typename Node, typename Iter >
+    std::size_t extract_parents(
+        const intrusive_ptr<Node>& root,
+        Iter iter,
+        const options& opts = options());
+
+    template < typename Node, typename Iter >
+    std::size_t extract_children(
+        const intrusive_ptr<Node>& root,
+        Iter iter,
+        const options& opts = options());
+}
+
+namespace e2d::nodes
+{
+    template < typename Node, typename F >
+    bool for_extracted_parents(
+        const intrusive_ptr<Node>& root,
+        F&& f,
+        const options& opts = options());
+
+    template < typename Node, typename F >
+    bool for_extracted_children(
+        const intrusive_ptr<Node>& root,
+        F&& f,
+        const options& opts = options());
+}
+
+namespace e2d::nodes
+{
+    template < typename Component, typename Node, typename Iter >
+    std::size_t extract_components_from_parents(
+        const intrusive_ptr<Node>& root,
+        Iter iter,
+        const options& opts = options());
+
+    template < typename Component, typename Node, typename Iter >
+    std::size_t extract_components_from_children(
+        const intrusive_ptr<Node>& root,
+        Iter iter,
+        const options& opts = options());
+}
+
+namespace e2d::nodes
+{
+    template < typename Component, typename Node, typename F >
+    bool for_extracted_components_from_parents(
+        const intrusive_ptr<Node>& root,
+        F&& f,
+        const options& opts = options());
+
+    template < typename Component, typename Node, typename F >
+    bool for_extracted_components_from_children(
+        const intrusive_ptr<Node>& root,
+        F&& f,
+        const options& opts = options());
+}
+
+namespace e2d::nodes
+{
+    template < typename Component, typename Node >
+    gcomponent<Component> find_component_from_parents(
+        const intrusive_ptr<Node>& root,
+        const options& opts = options());
+
+    template < typename Component, typename Node >
+    gcomponent<Component> find_component_from_children(
+        const intrusive_ptr<Node>& root,
+        const options& opts = options());
+}
+
 #include "node.inl"
-#endif

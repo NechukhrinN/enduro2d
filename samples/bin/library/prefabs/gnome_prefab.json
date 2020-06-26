@@ -1,0 +1,19 @@
+{
+    "prefab" : "model_prefab.json",
+    "components" : {
+        "named" : {
+            "name" : "gnome"
+        },
+        "renderer" : {
+            "materials" : [
+                "../models/gnome/gnome_material.json"
+            ],
+            "transform" : {
+                "translation" : [0,0,5]
+            }
+        },
+        "model_renderer" : {
+            "model" : "../models/gnome/gnome_model.json"
+        }
+    }
+}

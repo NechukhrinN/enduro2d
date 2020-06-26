@@ -1,14 +1,11 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
-#ifndef E2D_INCLUDE_GUARD_8B0A2CAB69114FA69A716D2CC7F64DD4
-#define E2D_INCLUDE_GUARD_8B0A2CAB69114FA69A716D2CC7F64DD4
 #pragma once
 
-#include "_utils.hpp"
 #include "streams.hpp"
 
 namespace e2d
@@ -41,5 +38,3 @@ namespace e2d
             : *this;
     }
 }
-
-#endif

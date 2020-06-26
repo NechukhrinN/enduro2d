@@ -1,11 +1,12 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
 
+#include "_base.hpp"
 #include "configs.hpp"
 
 //
@@ -31,7 +32,7 @@
 //
 
 #if defined(E2D_COMPILER) && E2D_COMPILER == E2D_COMPILER_MSVC
-#  define E2D_ALLOCA(size) _malloca((size))
+#  define E2D_ALLOCA(size) _alloca((size))
 #else
 #  define E2D_ALLOCA(size) alloca((size))
 #endif
@@ -40,17 +41,15 @@
     std::memset(E2D_ALLOCA((size)), 0, (size))
 
 //
+// E2D_PP_CAT
+//
+
+#define E2D_PP_CAT(x, y) E2D_PP_CAT_I(x, y)
+#define E2D_PP_CAT_I(x, y) x ## y
+
+//
 // E2D_UNUSED
 //
 
 template < typename... Ts >
 constexpr void E2D_UNUSED(Ts&&...) noexcept {}
-
-//
-// E2D_COUNTOF
-//
-
-template < typename T, std::size_t N >
-constexpr std::size_t E2D_COUNTOF(const T(&)[N]) noexcept {
-    return N;
-}

@@ -1,100 +1,74 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "dbgui_impl/dbgui.hpp"
 
-namespace
-{
-    using namespace e2d;
+#include "dbgui_impl/widgets/console_widget.hpp"
+#include "dbgui_impl/widgets/engine_widget.hpp"
+#include "dbgui_impl/widgets/input_widget.hpp"
+#include "dbgui_impl/widgets/window_widget.hpp"
 
-    class imgui_event_listener final : public window::event_listener {
-    public:
-        imgui_event_listener(ImGuiIO& io, window& w)
-        : io_(io)
-        , window_(w) {}
-
-        void on_input_char(char32_t uchar) noexcept final {
-            if ( uchar <= std::numeric_limits<ImWchar>::max() ) {
-                io_.AddInputCharacter(static_cast<ImWchar>(uchar));
-            }
-        }
-
-        void on_move_cursor(const v2f& pos) noexcept final {
-            const v2f real_size = window_.real_size().cast_to<f32>();
-            if ( math::minimum(real_size) > 0.f ) {
-                io_.MousePos = pos * (v2f(io_.DisplaySize) / real_size);
-            }
-        }
-
-        void on_mouse_scroll(const v2f& delta) noexcept final {
-            io_.MouseWheel += delta.y;
-            io_.MouseWheelH += delta.x;
-        }
-
-        void on_keyboard_key(keyboard_key key, u32 scancode, keyboard_key_action act) noexcept final {
-            E2D_UNUSED(scancode);
-            auto key_i = utils::enum_to_underlying(key);
-            if ( key_i < E2D_COUNTOF(io_.KeysDown) ) {
-                switch ( act ) {
-                    case keyboard_key_action::press:
-                    case keyboard_key_action::repeat:
-                        io_.KeysDown[key_i] = true;
-                        break;
-                    case keyboard_key_action::release:
-                        io_.KeysDown[key_i] = false;
-                        break;
-                    case keyboard_key_action::unknown:
-                        break;
-                }
-            }
-        }
-    private:
-        ImGuiIO& io_;
-        window& window_;
-    };
-}
+#include <3rdparty/icons/fa_solid_900.h>
+#include <3rdparty/icons/fa_regular_400.h>
+#include <3rdparty/icons/materialicons_regular.h>
 
 namespace e2d
 {
     class dbgui::internal_state final : private e2d::noncopyable {
+    public:
+        using context_uptr = std::unique_ptr<
+            ImGuiContext, void(*)(ImGuiContext*)>;
     public:
         internal_state(debug& d, input& i, render& r, window& w)
         : debug_(d)
         , input_(i)
         , render_(r)
         , window_(w)
-        , context_(ImGui::CreateContext())
-        , listener_(w.register_event_listener<imgui_event_listener>(bind_context(), w))
+        , context_(ImGui::CreateContext(), ImGui::DestroyContext)
+        , listener_(w.register_event_listener<imgui::imgui_event_listener>(bind_context_(), w))
         {
-            ImGuiIO& io = bind_context();
+            ImGuiIO& io = bind_context_();
             setup_key_map_(io);
             setup_config_flags_(io);
+            setup_custom_fonts_(io);
             setup_internal_resources_(io);
         }
 
         ~internal_state() noexcept {
             window_.unregister_event_listener(listener_);
-            ImGui::DestroyContext(context_);
         }
     public:
-        ImGuiIO& bind_context() noexcept {
-            ImGui::SetCurrentContext(context_);
-            return ImGui::GetIO();
+        void register_menu_widget(str menu, str item, widget_uptr widget) {
+            E2D_ASSERT(!menu.empty() && !item.empty() && widget);
+            std::lock_guard<std::recursive_mutex> guard(rmutex_);
+
+            widget_desc desc{std::move(item), std::move(widget), false};
+            if ( widgets_.contains(menu) ) {
+                widgets_[menu].push_back(std::move(desc));
+            } else {
+                vector<widget_desc> descs;
+                descs.push_back(std::move(desc));
+                widgets_.emplace(std::move(menu), std::move(descs));
+            }
         }
 
         bool visible() const noexcept {
+            std::lock_guard<std::recursive_mutex> guard(rmutex_);
             return visible_;
         }
 
         void toggle_visible(bool yesno) noexcept {
+            std::lock_guard<std::recursive_mutex> guard(rmutex_);
             visible_ = yesno;
         }
 
         void frame_tick() {
-            ImGuiIO& io = bind_context();
+            std::lock_guard<std::recursive_mutex> guard(rmutex_);
+
+            ImGuiIO& io = bind_context_();
             const mouse& m = input_.mouse();
             const keyboard& k = input_.keyboard();
 
@@ -130,8 +104,16 @@ namespace e2d
                 k.is_key_pressed(keyboard_key::lsuper) ||
                 k.is_key_pressed(keyboard_key::rsuper);
 
-            io.DisplaySize = window_.real_size().cast_to<f32>();
-            io.DisplayFramebufferScale = v2f::unit();
+            io.DisplaySize =
+                window_.framebuffer_size().cast_to<f32>() / window_.dpi_scale();
+
+            io.DisplayFramebufferScale = io.DisplaySize.x > 0.f && io.DisplaySize.y > 0.f
+                ? window_.framebuffer_size().cast_to<f32>() / v2f(io.DisplaySize)
+                : v2f(1.f, 1.f);
+
+            window_.set_cursor_shape(
+                imgui::convert_mouse_cursor(
+                    ImGui::GetMouseCursor()));
 
             if ( ImGui::GetFrameCount() > 0 ) {
                 ImGui::EndFrame();
@@ -141,28 +123,30 @@ namespace e2d
         }
 
         void frame_render() {
-            ImGui::Render();
+            std::lock_guard<std::recursive_mutex> guard(rmutex_);
 
+            ImGui::Render();
             ImDrawData* draw_data = ImGui::GetDrawData();
             if ( !draw_data ) {
                 return;
             }
 
             const v2f display_size = draw_data->DisplaySize;
-            const b2f display_size_r = make_rect(display_size);
+            const v2f framebuffer_size = display_size * v2f(draw_data->FramebufferScale);
 
-            const m4f projection =
-                math::make_translation_matrix4(display_size * v2f(-0.5f, 0.5f)) *
-                math::make_orthogonal_lh_matrix4(display_size, 0.f, 1.f);
+            const m4f projection = math::make_orthographic_lh_matrix4(
+                0.f, display_size.x,
+                display_size.y, 0.f,
+                -1.f, 1.f);
 
             for ( int i = 0; i < draw_data->CmdListsCount; ++i ) {
                 const ImDrawList* cmd_list = draw_data->CmdLists[i];
 
-                update_index_buffer({
+                update_index_buffer_({
                     cmd_list->IdxBuffer.Data,
                     math::numeric_cast<std::size_t>(cmd_list->IdxBuffer.Size) * sizeof(ImDrawIdx)});
 
-                update_vertex_buffer({
+                update_vertex_buffer_({
                     cmd_list->VtxBuffer.Data,
                     math::numeric_cast<std::size_t>(cmd_list->VtxBuffer.Size) * sizeof(ImDrawVert)});
 
@@ -175,13 +159,14 @@ namespace e2d
                     const ImDrawCmd& pcmd = cmd_list->CmdBuffer[cmd_i];
 
                     const b2f clip_r(
-                        pcmd.ClipRect.x,
-                        display_size.y - pcmd.ClipRect.w,
-                        pcmd.ClipRect.z - pcmd.ClipRect.x,
-                        pcmd.ClipRect.w - pcmd.ClipRect.y);
+                        (pcmd.ClipRect.x) * draw_data->FramebufferScale.x,
+                        (display_size.y - pcmd.ClipRect.w) * draw_data->FramebufferScale.y,
+                        (pcmd.ClipRect.z - pcmd.ClipRect.x) * draw_data->FramebufferScale.x,
+                        (pcmd.ClipRect.w - pcmd.ClipRect.y) * draw_data->FramebufferScale.y);
 
                     if ( math::minimum(clip_r.position) >= 0.f
-                        && math::overlaps(clip_r, display_size_r) )
+                        && clip_r.position.x + clip_r.size.x <= framebuffer_size.x
+                        && clip_r.position.y + clip_r.size.y <= framebuffer_size.y )
                     {
                         texture_ptr texture = pcmd.TextureId
                             ? *static_cast<texture_ptr*>(pcmd.TextureId)
@@ -196,8 +181,8 @@ namespace e2d
 
                         render_.execute(render::command_block<8>()
                             .add_command(render::viewport_command(
-                                display_size_r.cast_to<u32>(),
-                                clip_r.cast_to<u32>()))
+                                framebuffer_size.cast_to<i32>(),
+                                clip_r.cast_to<i32>()))
                             .add_command(render::draw_command(material_, geometry, mprops_)
                                 .index_range(first_index, pcmd.ElemCount)));
                     }
@@ -206,7 +191,19 @@ namespace e2d
                 }
             }
         }
+
+        void show_main_dock_space() {
+            imgex::with_main_dock_space([this](){
+                show_widget_menu_bar_();
+                show_widget_windows_();
+            });
+        }
     private:
+        ImGuiIO& bind_context_() noexcept {
+            ImGui::SetCurrentContext(context_.get());
+            return ImGui::GetIO();
+        }
+
         void setup_key_map_(ImGuiIO& io) noexcept {
             const auto map_key = [&io](ImGuiKey_ imgui_key, keyboard_key key) noexcept {
                 E2D_ASSERT(imgui_key < ImGuiKey_COUNT);
@@ -244,14 +241,53 @@ namespace e2d
         void setup_config_flags_(ImGuiIO& io) noexcept {
             io.IniFilename = nullptr;
             io.LogFilename = nullptr;
+
+            io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
             io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+
+            io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
+        }
+
+        void setup_custom_fonts_(ImGuiIO& io) {
+            io.Fonts->AddFontDefault();
+
+            ImFontConfig icons_config;
+            icons_config.MergeMode = true;
+            icons_config.PixelSnapH = true;
+
+            {
+                static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0};
+                io.Fonts->AddFontFromMemoryCompressedTTF(
+                    fa_solid_900_compressed_data,
+                    math::numeric_cast<int>(fa_solid_900_compressed_size),
+                    13.f,
+                    &icons_config, icons_ranges);
+            }
+
+            {
+                static const ImWchar icons_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0};
+                io.Fonts->AddFontFromMemoryCompressedTTF(
+                    fa_regular_400_compressed_data,
+                    math::numeric_cast<int>(fa_regular_400_compressed_size),
+                    13.f,
+                    &icons_config, icons_ranges);
+            }
+
+            {
+                static const ImWchar icons_ranges[] = { ICON_MIN_MD, ICON_MAX_MD, 0};
+                io.Fonts->AddFontFromMemoryCompressedTTF(
+                    materialicons_regular_compressed_data,
+                    math::numeric_cast<int>(materialicons_regular_compressed_size),
+                    13.f,
+                    &icons_config, icons_ranges);
+            }
         }
 
         void setup_internal_resources_(ImGuiIO& io) {
             {
                 shader_ = render_.create_shader(
-                    dbgui_shaders::vertex_source_cstr(),
-                    dbgui_shaders::fragment_source_cstr());
+                    imgui::vertex_source_cstr(),
+                    imgui::fragment_source_cstr());
 
                 if ( !shader_ ) {
                     throw bad_dbgui_operation();
@@ -260,14 +296,14 @@ namespace e2d
             {
                 unsigned char* font_pixels;
                 int font_width, font_height;
-                io.Fonts->GetTexDataAsRGBA32(&font_pixels, &font_width, &font_height);
+                io.Fonts->GetTexDataAsAlpha8(&font_pixels, &font_width, &font_height);
 
                 texture_ = render_.create_texture(image(
                     make_vec2(font_width, font_height).cast_to<u32>(),
-                    image_data_format::rgba8,
+                    image_data_format::a8,
                     buffer(
                         font_pixels,
-                        math::numeric_cast<std::size_t>(font_width * font_height) * sizeof(u32))));
+                        math::numeric_cast<std::size_t>(font_width * font_height) * sizeof(u8))));
 
                 if ( !texture_ ) {
                     throw bad_dbgui_operation();
@@ -282,13 +318,13 @@ namespace e2d
                             .capabilities(render::capabilities_state()
                                 .blending(true))
                             .blending(render::blending_state()
-                                .src_factor(render::blending_factor::src_alpha)
+                                .src_factor(render::blending_factor::one)
                                 .dst_factor(render::blending_factor::one_minus_src_alpha)))
                         .shader(shader_));
             }
         }
 
-        static std::size_t calculate_new_buffer_size(
+        static std::size_t calculate_new_buffer_size_(
             std::size_t esize, std::size_t osize, std::size_t nsize)
         {
             std::size_t msize = std::size_t(-1) / esize * esize;
@@ -301,13 +337,13 @@ namespace e2d
             return math::max(osize * 2u, nsize);
         }
 
-        void update_index_buffer(buffer_view indices) {
+        void update_index_buffer_(buffer_view indices) {
             if ( index_buffer_ && index_buffer_->buffer_size() >= indices.size() ) {
-                index_buffer_->update(indices, 0);
+                render_.update_buffer(index_buffer_, indices, 0u);
                 return;
             }
 
-            const std::size_t new_buffer_size = calculate_new_buffer_size(
+            const std::size_t new_buffer_size = calculate_new_buffer_size_(
                 sizeof(ImDrawIdx),
                 index_buffer_ ? index_buffer_->buffer_size() : 0u,
                 indices.size());
@@ -327,13 +363,13 @@ namespace e2d
             }
         }
 
-        void update_vertex_buffer(buffer_view vertices) {
+        void update_vertex_buffer_(buffer_view vertices) {
             if ( vertex_buffer_ && vertex_buffer_->buffer_size() >= vertices.size() ) {
-                vertex_buffer_->update(vertices, 0);
+                render_.update_buffer(vertex_buffer_, vertices, 0u);
                 return;
             }
 
-            const std::size_t new_buffer_size = calculate_new_buffer_size(
+            const std::size_t new_buffer_size = calculate_new_buffer_size_(
                 sizeof(ImDrawVert),
                 vertex_buffer_ ? vertex_buffer_->buffer_size() : 0u,
                 vertices.size());
@@ -355,13 +391,50 @@ namespace e2d
                     new_buffer_size);
             }
         }
+
+        void show_widget_menu_bar_() {
+            imgex::with_menu_bar([this](){
+                for ( auto& p : widgets_ ) {
+                    imgex::with_menu(p.first, [&p](){
+                        for ( widget_desc& desc : p.second ) {
+                            ImGui::MenuItem(desc.item.c_str(), nullptr, &desc.opened);
+                        }
+                    });
+                }
+            });
+        }
+
+        void show_widget_windows_() {
+            for ( auto& p : widgets_ ) {
+                for ( widget_desc& desc : p.second ) {
+                    if ( !desc.opened ) {
+                        continue;
+                    }
+
+                    const str& title = desc.widget->desc().title
+                        ? *desc.widget->desc().title
+                        : desc.item;
+
+                    if ( desc.widget->desc().first_size ) {
+                        ImGui::SetNextWindowSize(
+                            *desc.widget->desc().first_size,
+                            ImGuiCond_FirstUseEver);
+                    }
+
+                    imgex::with_window(title, &desc.opened, ImGuiWindowFlags_None, [&desc](){
+                        if ( !desc.widget->show() ) {
+                            desc.opened = false;
+                        }
+                    });
+                }
+            }
+        }
     private:
         debug& debug_;
         input& input_;
         render& render_;
         window& window_;
-        bool visible_{false};
-        ImGuiContext* context_{nullptr};
+        context_uptr context_;
         window::event_listener& listener_;
     private:
         shader_ptr shader_;
@@ -370,14 +443,32 @@ namespace e2d
         render::property_block mprops_;
         index_buffer_ptr index_buffer_;
         vertex_buffer_ptr vertex_buffer_;
+    private:
+        struct widget_desc {
+            str item;
+            widget_uptr widget;
+            bool opened = false;
+        };
+        mutable std::recursive_mutex rmutex_;
+        bool visible_{false};
+        flat_map<str, vector<widget_desc>> widgets_;
     };
 }
 
 namespace e2d
 {
     dbgui::dbgui(debug& d, input& i, render& r, window& w)
-    : state_(new internal_state(d, i, r, w)) {}
+    : state_(new internal_state(d, i, r, w)) {
+        register_menu_widget<dbgui_widgets::console_widget>("Debug", ICON_FA_TERMINAL " Console", d);
+        register_menu_widget<dbgui_widgets::engine_widget>("Debug", ICON_FA_COGS " Engine");
+        register_menu_widget<dbgui_widgets::input_widget>("Debug", ICON_FA_GAMEPAD " Input");
+        register_menu_widget<dbgui_widgets::window_widget>("Debug", ICON_FA_DESKTOP " Window");
+    }
     dbgui::~dbgui() noexcept = default;
+
+    void dbgui::register_menu_widget(str menu, str item, widget_uptr widget) {
+        state_->register_menu_widget(std::move(menu), std::move(item), std::move(widget));
+    }
 
     bool dbgui::visible() const noexcept {
         return state_->visible();
@@ -388,14 +479,16 @@ namespace e2d
     }
 
     void dbgui::frame_tick() {
+        E2D_PROFILER_SCOPE("dbgui.frame_tick");
         state_->frame_tick();
 
         if ( visible() ) {
-            dbgui_widgets::show_main_menu();
+            state_->show_main_dock_space();
         }
     }
 
     void dbgui::frame_render() {
+        E2D_PROFILER_SCOPE("dbgui.frame_render");
         state_->frame_render();
     }
 }

@@ -1,13 +1,12 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
 
 #include "_core.hpp"
-#include "window.hpp"
 
 namespace e2d
 {
@@ -26,6 +25,10 @@ namespace e2d
         bool is_button_pressed(mouse_button btn) const noexcept;
         bool is_button_just_pressed(mouse_button btn) const noexcept;
         bool is_button_just_released(mouse_button btn) const noexcept;
+
+        vector<mouse_button> pressed_buttons() const;
+        vector<mouse_button> just_pressed_buttons() const;
+        vector<mouse_button> just_released_buttons() const;
 
         void extract_pressed_buttons(vector<mouse_button>& dst) const;
         void extract_just_pressed_buttons(vector<mouse_button>& dst) const;
@@ -51,6 +54,10 @@ namespace e2d
         bool is_key_pressed(keyboard_key key) const noexcept;
         bool is_key_just_pressed(keyboard_key key) const noexcept;
         bool is_key_just_released(keyboard_key key) const noexcept;
+
+        vector<keyboard_key> pressed_keys() const;
+        vector<keyboard_key> just_pressed_keys() const;
+        vector<keyboard_key> just_released_keys() const;
 
         void extract_pressed_keys(vector<keyboard_key>& dst) const;
         void extract_just_pressed_keys(vector<keyboard_key>& dst) const;
@@ -110,17 +117,5 @@ namespace e2d
     private:
         class internal_state;
         std::unique_ptr<internal_state> state_;
-    };
-
-    class window_input_source : public window::event_listener {
-    public:
-        window_input_source(input& input) noexcept;
-        void on_input_char(char32_t uchar) noexcept final;
-        void on_move_cursor(const v2f& pos) noexcept final;
-        void on_mouse_scroll(const v2f& delta) noexcept final;
-        void on_mouse_button(mouse_button btn, mouse_button_action act) noexcept final;
-        void on_keyboard_key(keyboard_key key, u32 scancode, keyboard_key_action act) noexcept final;
-    private:
-        input& input_;
     };
 }

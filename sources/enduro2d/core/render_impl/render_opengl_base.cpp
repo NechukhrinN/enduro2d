@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "render_opengl_base.hpp"
@@ -78,26 +78,99 @@ namespace
         return success == GL_TRUE;
     }
 
-    bool process_program_validation_result(debug& debug, GLuint program) noexcept {
-        E2D_ASSERT(glIsProgram(program));
-        GL_CHECK_CODE(debug, glValidateProgram(program));
-        GLint success = GL_FALSE;
-        GL_CHECK_CODE(debug, glGetProgramiv(program, GL_VALIDATE_STATUS, &success));
-        GLint log_len = 0;
-        GL_CHECK_CODE(debug, glGetProgramiv(program, GL_INFO_LOG_LENGTH, &log_len));
-        if ( log_len > 0 ) {
-            GLchar* log_buffer = static_cast<GLchar*>(E2D_ALLOCA(
-                sizeof(GLchar) * math::numeric_cast<std::size_t>(log_len)));
-            GL_CHECK_CODE(debug, glGetProgramInfoLog(
-                program, log_len, nullptr, log_buffer));
-            debug.log(success ? debug::level::warning : debug::level::error,
-                "RENDER: program validation info:\n--> %0", log_buffer);
+    template < typename... Ext >
+    bool gl_has_any_extension(debug& debug, Ext... required) noexcept {
+        const GLubyte* all_extensions = nullptr;
+        GL_CHECK_CODE(debug, all_extensions = glGetString(GL_EXTENSIONS));
+        if ( !all_extensions ) {
+            return false;
         }
-        return success == GL_TRUE;
+        str_view extensions(reinterpret_cast<const char*>(all_extensions));
+        while ( !extensions.empty() ) {
+            const auto sep_pos = extensions.find(' ');
+            const str_view current = sep_pos != str_view::npos
+                ? extensions.substr(0, sep_pos)
+                : extensions;
+            for ( const auto& req : {required...} ) {
+                if ( req == current ) {
+                    return true;
+                }
+            }
+            extensions = sep_pos != str_view::npos
+                ? extensions.substr(sep_pos + 1)
+                : str_view();
+        }
+        return false;
+    }
+
+    enum class gl_version : u32 {
+        gl_bit_ = 1 << 28,
+        gles_bit_ = 2 << 28,
+
+        gl_1_0 = 100 | gl_bit_,
+        gl_1_1 = 110 | gl_bit_,
+        gl_1_2 = 120 | gl_bit_,
+        gl_1_3 = 130 | gl_bit_,
+        gl_1_4 = 140 | gl_bit_,
+        gl_1_5 = 150 | gl_bit_,
+
+        gl_2_0 = 200 | gl_bit_,
+        gl_2_1 = 210 | gl_bit_,
+
+        gl_3_0 = 300 | gl_bit_,
+        gl_3_1 = 310 | gl_bit_,
+        gl_3_2 = 320 | gl_bit_,
+        gl_3_3 = 330 | gl_bit_,
+
+        gl_4_0 = 400 | gl_bit_,
+        gl_4_1 = 410 | gl_bit_,
+        gl_4_2 = 420 | gl_bit_,
+        gl_4_3 = 430 | gl_bit_,
+        gl_4_4 = 440 | gl_bit_,
+        gl_4_5 = 450 | gl_bit_,
+        gl_4_6 = 460 | gl_bit_,
+
+        gles_2_0 = 200 | gles_bit_,
+
+        gles_3_0 = 300 | gles_bit_,
+        gles_3_1 = 310 | gles_bit_,
+        gles_3_2 = 320 | gles_bit_
+    };
+
+    bool operator>=(gl_version lhs, gl_version rhs) noexcept {
+        constexpr u32 mask = u32(gl_version::gl_bit_)
+                           | u32(gl_version::gles_bit_);
+        return (u32(lhs) & mask) == (u32(rhs) & mask)
+            && (u32(lhs) & ~mask) >= (u32(rhs) & ~mask);
+    }
+
+    gl_version gl_get_version(debug& debug) noexcept {
+        const GLubyte* ver = nullptr;
+        GL_CHECK_CODE(debug, ver = glGetString(GL_VERSION));
+
+        GLint major = 2, minor = 1;
+        if ( ver ) {
+            const str_view ver_str = str_view(reinterpret_cast<const char*>(ver));
+            const std::size_t dot = ver_str.find('.');
+            if ( dot > 0 && dot + 1 < ver_str.size() ) {
+                major = ver[dot - 1] - '0';
+                minor = ver[dot + 1] - '0';
+            }
+        }
+
+    #if E2D_RENDER_MODE == E2D_RENDER_MODE_OPENGL
+        const u32 ver_bit = u32(gl_version::gl_bit_);
+    #elif E2D_RENDER_MODE == E2D_RENDER_MODE_OPENGLES
+        const u32 ver_bit = u32(gl_version::gles_bit_);
+    #else
+    #   error unknown render mode
+    #endif
+
+        return gl_version(ver_bit | (major * 100 + minor * 10));
     }
 }
 
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
     //
     // gl_buffer_id
@@ -639,60 +712,16 @@ namespace e2d { namespace opengl
     bool operator!=(const gl_renderbuffer_id& l, const gl_renderbuffer_id& r) noexcept {
         return !(l == r);
     }
-}}
+}
 
-namespace e2d { namespace opengl
-{
-    const char* uniform_type_to_cstr(uniform_type ut) noexcept {
-        #define DEFINE_CASE(x) case uniform_type::x: return #x
-        switch ( ut ) {
-            DEFINE_CASE(signed_integer);
-            DEFINE_CASE(floating_point);
-            DEFINE_CASE(v2i);
-            DEFINE_CASE(v3i);
-            DEFINE_CASE(v4i);
-            DEFINE_CASE(v2f);
-            DEFINE_CASE(v3f);
-            DEFINE_CASE(v4f);
-            DEFINE_CASE(m2f);
-            DEFINE_CASE(m3f);
-            DEFINE_CASE(m4f);
-            DEFINE_CASE(sampler_2d);
-            DEFINE_CASE(sampler_cube);
-            DEFINE_CASE(unknown);
-            default:
-                E2D_ASSERT_MSG(false, "unexpected uniform type");
-                return "";
-        }
-        #undef DEFINE_CASE
-    }
-
-    const char* attribute_type_to_cstr(attribute_type at) noexcept {
-        #define DEFINE_CASE(x) case attribute_type::x: return #x
-        switch ( at ) {
-            DEFINE_CASE(floating_point);
-            DEFINE_CASE(v2f);
-            DEFINE_CASE(v3f);
-            DEFINE_CASE(v4f);
-            DEFINE_CASE(m2f);
-            DEFINE_CASE(m3f);
-            DEFINE_CASE(m4f);
-            DEFINE_CASE(unknown);
-            default:
-                E2D_ASSERT_MSG(false, "unexpected attribute type");
-                return "";
-        }
-        #undef DEFINE_CASE
-    }
-}}
-
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
     GLenum convert_image_data_format_to_external_format(image_data_format f) noexcept {
         #define DEFINE_CASE(x,y) case image_data_format::x: return y
         switch ( f ) {
-            DEFINE_CASE(g8, GL_LUMINANCE);
-            DEFINE_CASE(ga8, GL_LUMINANCE_ALPHA);
+            DEFINE_CASE(a8, GL_ALPHA);
+            DEFINE_CASE(l8, GL_LUMINANCE);
+            DEFINE_CASE(la8, GL_LUMINANCE_ALPHA);
             DEFINE_CASE(rgb8, GL_RGB);
             DEFINE_CASE(rgba8, GL_RGBA);
             default:
@@ -705,8 +734,9 @@ namespace e2d { namespace opengl
     GLenum convert_image_data_format_to_external_data_type(image_data_format f) noexcept {
         #define DEFINE_CASE(x,y) case image_data_format::x: return y
         switch ( f ) {
-            DEFINE_CASE(g8, GL_UNSIGNED_BYTE);
-            DEFINE_CASE(ga8, GL_UNSIGNED_BYTE);
+            DEFINE_CASE(a8, GL_UNSIGNED_BYTE);
+            DEFINE_CASE(l8, GL_UNSIGNED_BYTE);
+            DEFINE_CASE(la8, GL_UNSIGNED_BYTE);
             DEFINE_CASE(rgb8, GL_UNSIGNED_BYTE);
             DEFINE_CASE(rgba8, GL_UNSIGNED_BYTE);
             default:
@@ -721,8 +751,10 @@ namespace e2d { namespace opengl
         switch ( f ) {
             DEFINE_CASE(depth16, GL_DEPTH_COMPONENT);
             DEFINE_CASE(depth24, GL_DEPTH_COMPONENT);
-            DEFINE_CASE(depth32, GL_DEPTH_COMPONENT);
             DEFINE_CASE(depth24_stencil8, GL_DEPTH_STENCIL);
+            DEFINE_CASE(a8, GL_ALPHA);
+            DEFINE_CASE(l8, GL_LUMINANCE);
+            DEFINE_CASE(la8, GL_LUMINANCE_ALPHA);
             DEFINE_CASE(rgb8, GL_RGB);
             DEFINE_CASE(rgba8, GL_RGBA);
             default:
@@ -737,8 +769,10 @@ namespace e2d { namespace opengl
         switch ( f ) {
             DEFINE_CASE(depth16, GL_UNSIGNED_SHORT);
             DEFINE_CASE(depth24, GL_UNSIGNED_INT);
-            DEFINE_CASE(depth32, GL_UNSIGNED_INT);
             DEFINE_CASE(depth24_stencil8, GL_UNSIGNED_INT_24_8);
+            DEFINE_CASE(a8, GL_UNSIGNED_BYTE);
+            DEFINE_CASE(l8, GL_UNSIGNED_BYTE);
+            DEFINE_CASE(la8, GL_UNSIGNED_BYTE);
             DEFINE_CASE(rgb8, GL_UNSIGNED_BYTE);
             DEFINE_CASE(rgba8, GL_UNSIGNED_BYTE);
             default:
@@ -753,20 +787,32 @@ namespace e2d { namespace opengl
         switch ( f ) {
             DEFINE_CASE(depth16, GL_DEPTH_COMPONENT16);
             DEFINE_CASE(depth24, GL_DEPTH_COMPONENT24);
-            DEFINE_CASE(depth32, GL_DEPTH_COMPONENT32);
             DEFINE_CASE(depth24_stencil8, GL_DEPTH24_STENCIL8);
 
+            DEFINE_CASE(a8, GL_ALPHA);
+            DEFINE_CASE(l8, GL_LUMINANCE);
+            DEFINE_CASE(la8, GL_LUMINANCE_ALPHA);
             DEFINE_CASE(rgb8, GL_RGB);
             DEFINE_CASE(rgba8, GL_RGBA);
 
-            DEFINE_CASE(rgb_dxt1, GL_COMPRESSED_RGB_S3TC_DXT1_EXT);
             DEFINE_CASE(rgba_dxt1, GL_COMPRESSED_RGBA_S3TC_DXT1_EXT);
             DEFINE_CASE(rgba_dxt3, GL_COMPRESSED_RGBA_S3TC_DXT3_EXT);
             DEFINE_CASE(rgba_dxt5, GL_COMPRESSED_RGBA_S3TC_DXT5_EXT);
 
+            DEFINE_CASE(rgb_etc1, GL_ETC1_RGB8_OES);
+            DEFINE_CASE(rgb_etc2, GL_COMPRESSED_RGB8_ETC2);
+            DEFINE_CASE(rgba_etc2, GL_COMPRESSED_RGBA8_ETC2_EAC);
+            DEFINE_CASE(rgb_a1_etc2, GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2);
+
+            DEFINE_CASE(rgba_astc4x4, GL_COMPRESSED_RGBA_ASTC_4x4_KHR);
+            DEFINE_CASE(rgba_astc5x5, GL_COMPRESSED_RGBA_ASTC_5x5_KHR);
+            DEFINE_CASE(rgba_astc6x6, GL_COMPRESSED_RGBA_ASTC_6x6_KHR);
+            DEFINE_CASE(rgba_astc8x8, GL_COMPRESSED_RGBA_ASTC_8x8_KHR);
+            DEFINE_CASE(rgba_astc10x10, GL_COMPRESSED_RGBA_ASTC_10x10_KHR);
+            DEFINE_CASE(rgba_astc12x12, GL_COMPRESSED_RGBA_ASTC_12x12_KHR);
+
             DEFINE_CASE(rgb_pvrtc2, GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG);
             DEFINE_CASE(rgb_pvrtc4, GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG);
-
             DEFINE_CASE(rgba_pvrtc2, GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG);
             DEFINE_CASE(rgba_pvrtc4, GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG);
 
@@ -786,19 +832,30 @@ namespace e2d { namespace opengl
     pixel_declaration convert_image_data_format_to_pixel_declaration(image_data_format f) noexcept {
         #define DEFINE_CASE(x,y) case image_data_format::x: return pixel_declaration::pixel_type::y
         switch ( f ) {
-            DEFINE_CASE(g8, rgb8);
-            DEFINE_CASE(ga8, rgba8);
+            DEFINE_CASE(a8, a8);
+            DEFINE_CASE(l8, l8);
+            DEFINE_CASE(la8, la8);
             DEFINE_CASE(rgb8, rgb8);
             DEFINE_CASE(rgba8, rgba8);
 
-            DEFINE_CASE(rgb_dxt1, rgb_dxt1);
             DEFINE_CASE(rgba_dxt1, rgba_dxt1);
             DEFINE_CASE(rgba_dxt3, rgba_dxt3);
             DEFINE_CASE(rgba_dxt5, rgba_dxt5);
 
+            DEFINE_CASE(rgb_etc1, rgb_etc1);
+            DEFINE_CASE(rgb_etc2, rgb_etc2);
+            DEFINE_CASE(rgba_etc2, rgba_etc2);
+            DEFINE_CASE(rgb_a1_etc2, rgb_a1_etc2);
+
+            DEFINE_CASE(rgba_astc4x4, rgba_astc4x4);
+            DEFINE_CASE(rgba_astc5x5, rgba_astc5x5);
+            DEFINE_CASE(rgba_astc6x6, rgba_astc6x6);
+            DEFINE_CASE(rgba_astc8x8, rgba_astc8x8);
+            DEFINE_CASE(rgba_astc10x10, rgba_astc10x10);
+            DEFINE_CASE(rgba_astc12x12, rgba_astc12x12);
+
             DEFINE_CASE(rgb_pvrtc2, rgb_pvrtc2);
             DEFINE_CASE(rgb_pvrtc4, rgb_pvrtc4);
-
             DEFINE_CASE(rgba_pvrtc2, rgba_pvrtc2);
             DEFINE_CASE(rgba_pvrtc4, rgba_pvrtc4);
 
@@ -814,7 +871,6 @@ namespace e2d { namespace opengl
     GLenum convert_index_type(index_declaration::index_type it) noexcept {
         #define DEFINE_CASE(x,y) case index_declaration::index_type::x: return y;
         switch ( it ) {
-            DEFINE_CASE(unsigned_byte, GL_UNSIGNED_BYTE);
             DEFINE_CASE(unsigned_short, GL_UNSIGNED_SHORT);
             DEFINE_CASE(unsigned_int, GL_UNSIGNED_INT);
             default:
@@ -903,10 +959,6 @@ namespace e2d { namespace opengl
         switch ( f ) {
             DEFINE_CASE(nearest, GL_NEAREST);
             DEFINE_CASE(linear, GL_LINEAR);
-            DEFINE_CASE(nearest_mipmap_nearest, GL_NEAREST_MIPMAP_NEAREST);
-            DEFINE_CASE(linear_mipmap_nearest, GL_LINEAR_MIPMAP_NEAREST);
-            DEFINE_CASE(nearest_mipmap_linear, GL_NEAREST_MIPMAP_LINEAR);
-            DEFINE_CASE(linear_mipmap_linear, GL_LINEAR_MIPMAP_LINEAR);
             default:
                 E2D_ASSERT_MSG(false, "unexpected sampler min filter");
                 return 0;
@@ -1176,9 +1228,9 @@ namespace e2d { namespace opengl
         }
         #undef DEFINE_CASE
     }
-}}
+}
 
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
     void gl_trace_info(debug& debug) noexcept {
         const char* vendor = nullptr;
@@ -1242,6 +1294,10 @@ namespace e2d { namespace opengl
             max_combined_texture_image_units);
     }
 
+    bool gl_has_extension(debug& debug, str_view name) noexcept {
+        return gl_has_any_extension(debug, name);
+    }
+
     void gl_fill_device_caps(debug& debug, render::device_caps& caps) noexcept {
         GLint max_texture_size = 0;
         GLint max_renderbuffer_size = 0;
@@ -1296,30 +1352,118 @@ namespace e2d { namespace opengl
         caps.max_vertex_uniform_vectors = math::numeric_cast<u32>(max_vertex_uniform_vectors);
         caps.max_fragment_uniform_vectors = math::numeric_cast<u32>(max_fragment_uniform_vectors);
 
+        const gl_version version = gl_get_version(debug);
+
+        caps.profile =
+            version >= gl_version::gles_3_0 ? render::api_profile::gles_3_0 :
+            version >= gl_version::gles_2_0 ? render::api_profile::gles_2_0 :
+            version >= gl_version::gl_3_2 ? render::api_profile::gl_3_2_compat :
+            render::api_profile::gl_2_1_compat;
+
         caps.npot_texture_supported =
-            GLEW_OES_texture_npot ||
-            GLEW_ARB_texture_non_power_of_two;
+            version >= gl_version::gl_2_0 ||
+            version >= gl_version::gles_3_0 ||
+            gl_has_any_extension(debug,
+                "GL_OES_texture_npot",
+                "GL_ARB_texture_non_power_of_two");
 
         caps.depth_texture_supported =
-            GLEW_OES_depth_texture ||
-            GLEW_ARB_depth_texture ||
-            GLEW_ANGLE_depth_texture ||
-            GLEW_SGIX_depth_texture;
+            version >= gl_version::gl_1_4 ||
+            version >= gl_version::gles_3_0 ||
+            gl_has_any_extension(debug,
+                "GL_OES_depth_texture",
+                "GL_ARB_depth_texture");
 
         caps.render_target_supported =
-            GLEW_OES_framebuffer_object ||
-            GLEW_ARB_framebuffer_object ||
-            GLEW_EXT_framebuffer_object;
+            version >= gl_version::gl_3_0 ||
+            version >= gl_version::gles_2_0 ||
+            gl_has_any_extension(debug,
+                "GL_OES_framebuffer_object",
+                "GL_EXT_framebuffer_object",
+                "GL_ARB_framebuffer_object");
+
+        caps.element_index_uint =
+            version >= gl_version::gl_1_1 ||
+            version >= gl_version::gles_3_0 ||
+            gl_has_any_extension(debug,
+                "GL_OES_element_index_uint");
+
+        caps.depth16_supported =
+            version >= gl_version::gl_1_4 ||
+            version >= gl_version::gles_3_0 ||
+            gl_has_any_extension(debug,
+                "GL_OES_depth_texture",
+                "GL_ARB_depth_texture");
+
+        caps.depth24_supported =
+            version >= gl_version::gl_1_4 ||
+            version >= gl_version::gles_3_0 ||
+            gl_has_any_extension(debug,
+                "GL_OES_depth24",
+                "GL_ARB_depth_texture");
+
+        caps.depth24_stencil8_supported =
+            version >= gl_version::gl_3_0 ||
+            version >= gl_version::gles_3_0 ||
+            gl_has_any_extension(debug,
+                "GL_OES_packed_depth_stencil",
+                "GL_EXT_packed_depth_stencil");
+
+        caps.dxt_compression_supported =
+            gl_has_any_extension(debug,
+                "GL_EXT_texture_compression_s3tc");
+
+        caps.etc1_compression_supported =
+            gl_has_any_extension(debug,
+                "GL_OES_compressed_ETC1_RGB8_texture");
+
+        caps.etc2_compression_supported =
+            version >= gl_version::gl_4_3 ||
+            version >= gl_version::gles_3_0 ||
+            gl_has_any_extension(debug,
+                "GL_ARB_ES3_compatibility");
+
+        caps.astc_compression_supported =
+            gl_has_any_extension(debug,
+                "GL_OES_texture_compression_astc",
+                "GL_KHR_texture_compression_astc_ldr",
+                "GL_KHR_texture_compression_astc_hdr");
+
+        caps.pvrtc_compression_supported =
+            gl_has_any_extension(debug,
+                "GL_IMG_texture_compression_pvrtc");
+
+        caps.pvrtc2_compression_supported =
+            gl_has_any_extension(debug,
+                "GL_IMG_texture_compression_pvrtc2");
     }
 
-    gl_shader_id gl_compile_shader(debug& debug, const str& source, GLenum type) noexcept {
+    gl_shader_id gl_compile_shader(
+        debug& debug,
+        str_view header,
+        str_view source,
+        GLenum type) noexcept
+    {
         gl_shader_id id = gl_shader_id::create(debug, type);
         if ( id.empty() ) {
             return id;
         }
-        const char* source_cstr = source.c_str();
-        GL_CHECK_CODE(debug, glShaderSource(*id, 1, &source_cstr, nullptr));
+
+        const GLchar* sources[] = {
+            header.empty() ? "" : header.data(),
+            source.empty() ? "" : source.data()};
+        const GLint source_lengths[] = {
+            math::numeric_cast<GLint>(header.size()),
+            math::numeric_cast<GLint>(source.size())};
+        static_assert(std::size(sources) == std::size(source_lengths));
+
+        GL_CHECK_CODE(debug, glShaderSource(
+            *id,
+            math::numeric_cast<GLsizei>(std::size(sources)),
+            sources,
+            source_lengths));
         GL_CHECK_CODE(debug, glCompileShader(*id));
+
         return process_shader_compilation_result(debug, *id)
             ? std::move(id)
             : gl_shader_id(debug);
@@ -1331,11 +1475,12 @@ namespace e2d { namespace opengl
         if ( id.empty() ) {
             return id;
         }
+
         GL_CHECK_CODE(debug, glAttachShader(*id, *vs));
         GL_CHECK_CODE(debug, glAttachShader(*id, *fs));
         GL_CHECK_CODE(debug, glLinkProgram(*id));
+
         return process_program_linking_result(debug, *id)
-            && process_program_validation_result(debug, *id)
             ? std::move(id)
             : gl_program_id(debug);
     }
@@ -1409,9 +1554,9 @@ namespace e2d { namespace opengl
         });
         return id;
     }
-}}
+}
 
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
     void grab_program_uniforms(
         debug& debug,
@@ -1488,7 +1633,7 @@ namespace e2d { namespace opengl
                 glsl_type_to_attribute_type(type));
         }
     }
-}}
+}
 
 #endif
 #endif

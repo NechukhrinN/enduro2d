@@ -15,16 +15,17 @@ function(add_e2d_sample NAME)
     # executable
     #
 
-    add_executable(${SAMPLE_NAME}
-        ${SAMPLE_SOURCES})
-    target_link_libraries(${SAMPLE_NAME}
-        ${E2D_LIBRARIES})
-    target_include_directories(${SAMPLE_NAME}
-        PRIVATE ${E2D_INCLUDE_DIRS})
-    set_target_properties(${SAMPLE_NAME} PROPERTIES
-        CXX_STANDARD 14
-        CXX_STANDARD_REQUIRED YES
-        CXX_EXTENSIONS NO)
+    add_executable(${SAMPLE_NAME} ${SAMPLE_SOURCES})
+    target_link_libraries(${SAMPLE_NAME} enduro2d)
+    set_target_properties(${SAMPLE_NAME} PROPERTIES FOLDER samples)
+
+    target_compile_options(${SAMPLE_NAME}
+        PRIVATE
+        $<$<CXX_COMPILER_ID:MSVC>:
+            /W3 /MP /bigobj>
+        PRIVATE
+        $<$<OR:$<CXX_COMPILER_ID:GNU>,$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
+            -Wall -Wextra -Wpedantic>)
 
     #
     # resources
@@ -34,9 +35,16 @@ function(add_e2d_sample NAME)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/bin
         $<TARGET_FILE_DIR:${SAMPLE_NAME}>/bin)
+    add_e2d_shared_libraries_to_target(${SAMPLE_NAME})
 endfunction(add_e2d_sample)
 
 add_e2d_sample(00)
 add_e2d_sample(01)
 add_e2d_sample(02)
 add_e2d_sample(03)
+add_e2d_sample(04)
+add_e2d_sample(05)
+add_e2d_sample(06)
+add_e2d_sample(07)
+add_e2d_sample(08)
+add_e2d_sample(09)

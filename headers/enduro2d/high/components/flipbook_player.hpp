@@ -1,12 +1,12 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
 
-#include "../_high.hpp"
+#include "_components.hpp"
 
 #include "../assets/flipbook_asset.hpp"
 
@@ -15,26 +15,30 @@ namespace e2d
     class flipbook_player final {
     public:
         flipbook_player() = default;
+        flipbook_player(const flipbook_asset::ptr& flipbook);
 
         // data access
 
         flipbook_player& time(f32 value) noexcept;
-        f32 time() const noexcept;
+        [[nodiscard]] f32 time() const noexcept;
 
         flipbook_player& speed(f32 value) noexcept;
-        f32 speed() const noexcept;
+        [[nodiscard]] f32 speed() const noexcept;
 
         flipbook_player& looped(bool value) noexcept;
-        bool looped() const noexcept;
+        [[nodiscard]] bool looped() const noexcept;
 
         flipbook_player& stopped(bool value) noexcept;
-        bool stopped() const noexcept;
+        [[nodiscard]] bool stopped() const noexcept;
 
         flipbook_player& playing(bool value) noexcept;
-        bool playing() const noexcept;
+        [[nodiscard]] bool playing() const noexcept;
 
         flipbook_player& sequence(str_hash value) noexcept;
-        str_hash sequence() const noexcept;
+        [[nodiscard]] str_hash sequence() const noexcept;
+
+        flipbook_player& flipbook(const flipbook_asset::ptr& value) noexcept;
+        [[nodiscard]] const flipbook_asset::ptr& flipbook() const noexcept;
 
         // helpers
 
@@ -49,11 +53,43 @@ namespace e2d
         bool looped_{false};
         bool playing_{false};
         str_hash sequence_;
+        flipbook_asset::ptr flipbook_;
     };
 }
 
 namespace e2d
 {
+    template <>
+    class factory_loader<flipbook_player> final : factory_loader<> {
+    public:
+        static const char* schema_source;
+
+        bool operator()(
+            flipbook_player& component,
+            const fill_context& ctx) const;
+
+        bool operator()(
+            asset_dependencies& dependencies,
+            const collect_context& ctx) const;
+    };
+}
+
+namespace e2d
+{
+    template <>
+    class component_inspector<flipbook_player> final : component_inspector<> {
+    public:
+        static const char* title;
+
+        void operator()(gcomponent<flipbook_player>& c) const;
+    };
+}
+
+namespace e2d
+{
+    inline flipbook_player::flipbook_player(const flipbook_asset::ptr& flipbook)
+    : flipbook_(flipbook) {}
+
     inline flipbook_player& flipbook_player::time(f32 value) noexcept {
         time_ = value;
         return *this;
@@ -106,6 +142,15 @@ namespace e2d
 
     inline str_hash flipbook_player::sequence() const noexcept {
         return sequence_;
+    }
+
+    inline flipbook_player& flipbook_player::flipbook(const flipbook_asset::ptr& value) noexcept {
+        flipbook_ = value;
+        return *this;
+    }
+
+    inline const flipbook_asset::ptr& flipbook_player::flipbook() const noexcept {
+        return flipbook_;
     }
 
     inline flipbook_player& flipbook_player::stop(f32 ntime) noexcept {

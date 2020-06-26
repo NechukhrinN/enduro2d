@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -72,7 +72,7 @@ namespace e2d
     std::unique_ptr<BaseT> module<BaseT>::instance_;
 }
 
-namespace e2d { namespace modules
+namespace e2d::modules
 {
     template < typename ImplT, typename... Args >
     ImplT& initialize(Args&&... args) {
@@ -80,16 +80,14 @@ namespace e2d { namespace modules
         return module<BaseT>::template initialize<ImplT>(std::forward<Args>(args)...);
     }
 
-    template < typename ImplT >
+    template < typename... ImplTs >
     void shutdown() noexcept {
-        using BaseT = typename ImplT::base_type;
-        module<BaseT>::shutdown();
+        (... , module<typename ImplTs::base_type>::shutdown());
     }
 
-    template < typename ImplT >
+    template < typename... ImplTs >
     bool is_initialized() noexcept {
-        using BaseT = typename ImplT::base_type;
-        return module<BaseT>::is_initialized();
+        return (... && module<typename ImplTs::base_type>::is_initialized());
     }
 
     template < typename ImplT >
@@ -97,4 +95,4 @@ namespace e2d { namespace modules
         using BaseT = typename ImplT::base_type;
         return static_cast<ImplT&>(module<BaseT>::instance());
     }
-}}
+}

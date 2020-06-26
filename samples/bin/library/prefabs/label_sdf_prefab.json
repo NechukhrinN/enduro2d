@@ -1,0 +1,18 @@
+{
+    "components" : {
+        "named" : {
+            "name" : "label"
+        },
+        "renderer" : {
+            "materials" : [
+                "../materials/font_sdf_material.json"
+            ]
+        },
+        "model_renderer" : {},
+        "label" : {
+            "font" : "../fonts/arial_sdf.fnt",
+            "text" : "Hello World!"
+        },
+        "label.dirty" : {}
+    }
+}

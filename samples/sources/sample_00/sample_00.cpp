@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "../common.hpp"
@@ -10,8 +10,6 @@ using namespace e2d;
 namespace
 {
     const char* vs_source_cstr = R"glsl(
-        #version 120
-
         attribute vec3 a_position;
         attribute vec2 a_uv;
         attribute vec4 a_color;
@@ -32,8 +30,6 @@ namespace
     )glsl";
 
     const char* fs_source_cstr = R"glsl(
-        #version 120
-
         uniform float u_time;
         uniform sampler2D u_texture1;
         uniform sampler2D u_texture2;
@@ -68,11 +64,11 @@ namespace
         }
     };
 
-    array<u8,6> generate_quad_indices() noexcept {
+    std::array<u16,6> generate_quad_indices() noexcept {
         return {0, 1, 2, 2, 1, 3};
     }
 
-    array<vertex1,4> generate_quad_vertices(const v2u& size) noexcept {
+    std::array<vertex1,4> generate_quad_vertices(const v2u& size) noexcept {
         f32 hw = size.x * 0.5f;
         f32 hh = size.y * 0.5f;
         return {
@@ -82,7 +78,7 @@ namespace
             vertex1{{ hw, -hh, 0.f}, {1, 0}}};
     }
 
-    array<vertex2,4> generate_quad_colors() noexcept {
+    std::array<vertex2,4> generate_quad_colors() noexcept {
         return {
             vertex2{color32::red()},
             vertex2{color32::green()},
@@ -90,7 +86,7 @@ namespace
             vertex2{color32::yellow()}};
     }
 
-    class game final : public application {
+    class game final : public engine::application {
     public:
         bool initialize() final {
             the<vfs>().register_scheme<archive_file_source>(
@@ -101,12 +97,19 @@ namespace
                 "ships",
                 url("piratepack://PNG/Retina/Ships"));
 
-            shader_ = the<render>().create_shader(
-                vs_source_cstr, fs_source_cstr);
-            texture1_ = the<render>().create_texture(
-                the<vfs>().read(url("ships://ship (2).png")));
-            texture2_ = the<render>().create_texture(
-                the<vfs>().read(url("ships://ship (19).png")));
+            image texture1_image;
+            if ( !images::try_load_image(texture1_image, the<vfs>().read(url("ships://ship (2).png"))) ) {
+                return false;
+            }
+
+            image texture2_image;
+            if ( !images::try_load_image(texture2_image, the<vfs>().read(url("ships://ship (19).png"))) ) {
+                return false;
+            }
+
+            shader_ = the<render>().create_shader(vs_source_cstr, fs_source_cstr);
+            texture1_ = the<render>().create_texture(texture1_image);
+            texture2_ = the<render>().create_texture(texture2_image);
 
             if ( !shader_ || !texture1_ || !texture2_ ) {
                 return false;
@@ -115,7 +118,7 @@ namespace
             const auto indices = generate_quad_indices();
             index_buffer_ = the<render>().create_index_buffer(
                 indices,
-                index_declaration::index_type::unsigned_byte,
+                index_declaration::index_type::unsigned_short,
                 index_buffer::usage::static_draw);
 
             const auto vertices1 = generate_quad_vertices(texture1_->size());
@@ -181,7 +184,7 @@ namespace
 
         void frame_render() final {
             const auto framebuffer_size = the<window>().real_size().cast_to<f32>();
-            const auto projection = math::make_orthogonal_lh_matrix4(
+            const auto projection = math::make_orthographic_lh_matrix4(
                 framebuffer_size, 0.f, 1.f);
 
             material_.properties()
@@ -190,7 +193,7 @@ namespace
 
             the<render>().execute(render::command_block<64>()
                 .add_command(render::viewport_command(
-                    the<window>().real_size()))
+                    the<window>().framebuffer_size().cast_to<i32>()))
                 .add_command(render::clear_command()
                     .color_value({1.f, 0.4f, 0.f, 1.f}))
                 .add_command(render::draw_command(material_, geometry_)));
@@ -199,7 +202,7 @@ namespace
         shader_ptr shader_;
         texture_ptr texture1_;
         texture_ptr texture2_;
-        index_buffer_ptr  index_buffer_;
+        index_buffer_ptr index_buffer_;
         vertex_buffer_ptr vertex_buffer1_;
         vertex_buffer_ptr vertex_buffer2_;
         render::material material_;
@@ -209,6 +212,8 @@ namespace
 
 int e2d_main(int argc, char *argv[]) {
     auto params = engine::parameters("sample_00", "enduro2d")
+        .window_params(engine::window_parameters()
+            .size({1024, 768}))
         .timer_params(engine::timer_parameters()
             .maximal_framerate(100));
     modules::initialize<engine>(argc, argv, params).start<game>();

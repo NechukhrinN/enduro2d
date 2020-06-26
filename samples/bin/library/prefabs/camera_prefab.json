@@ -1,0 +1,13 @@
+{
+    "components" : {
+        "named" : {
+            "name" : "camera"
+        },
+        "camera" : {
+            "background" : [1.0, 0.4, 0.0, 1.0],
+            "mode" : "fixed_crop"
+        },
+        "camera.input" : {},
+        "camera.gizmos" : {}
+    }
+}

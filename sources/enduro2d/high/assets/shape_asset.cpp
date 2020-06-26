@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/high/assets/shape_asset.hpp>
@@ -24,14 +24,22 @@ namespace e2d
         const library& library, str_view address)
     {
         return library.load_asset_async<binary_asset>(address)
-            .then([](const binary_asset::load_result& shape_data){
-                return the<deferrer>().do_in_worker_thread([shape_data](){
-                    shape content;
-                    if ( !shapes::try_load_shape(content, shape_data->content()) ) {
-                        throw shape_asset_loading_exception();
-                    }
-                    return shape_asset::create(std::move(content));
+        .then([
+            address = str(address)
+        ](const binary_asset::load_result& shape_data){
+            return the<deferrer>().do_in_worker_thread([
+                shape_data,
+                address = std::move(address)
+            ](){
+                E2D_PROFILER_SCOPE_EX("shape_asset.parsing", {
+                    {"address", address}
                 });
+                shape content;
+                if ( !shapes::try_load_shape(content, shape_data->content()) ) {
+                    throw shape_asset_loading_exception();
+                }
+                return shape_asset::create(std::move(content));
             });
+        });
     }
 }

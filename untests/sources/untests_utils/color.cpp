@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_utils.hpp"
@@ -47,6 +47,10 @@ TEST_CASE("color") {
         REQUIRE(c == color(0.05f,0.12f,0.21f,0.32f));
         c /= color(0.1f,0.2f,0.3f,0.4f);
         REQUIRE(c == color(0.5f,0.6f,0.7f,0.8f));
+    }
+    {
+        REQUIRE(make_vec3(color(0.1f,0.2f,0.3f,0.4f)) == v3f(0.1f,0.2f,0.3f));
+        REQUIRE(make_vec4(color(0.1f,0.2f,0.3f,0.4f)) == v4f(0.1f,0.2f,0.3f, 0.4f));
     }
     {
         REQUIRE(color(0.1f,0.2f,0.3f,0.4f) + 0.1f == color(0.2f,0.3f,0.4f,0.5f));
@@ -115,28 +119,14 @@ TEST_CASE("color") {
         REQUIRE(math::clamped(v0, color(4,5,6,7), color(9,9,9,9)) == color(4,5,6,7));
         REQUIRE(math::clamped(v0, color(6,5,4,3), color(9,9,9,9)) == color(6,5,5,6));
         REQUIRE(math::clamped(v0, color(7,6,5,4), color(9,9,9,9)) == color(7,6,5,6));
-
-        REQUIRE(math::saturated(color(-1,-2,-3,-4)) == color(0,0,0,0));
-        REQUIRE(math::saturated(color( 2, 3, 4, 5)) == color(1,1,1,1));
-        REQUIRE(math::saturated(color(-1, 3, 4, 5)) == color(0,1,1,1));
-
-        REQUIRE(math::saturated(color(2,0.6f,2,0.7f)) == color(1,0.6f,1,0.7f));
-        REQUIRE(math::saturated(color(0.6f,-2,2,2)) == color(0.6f,0,1,1));
-    }
-    {
-        {
-            REQUIRE_FALSE(math::contains_nan(color(0,1,2,3)));
-            REQUIRE_FALSE(math::contains_nan(color(0.f,1.f,2.f,3.f)));
-            REQUIRE(math::contains_nan(color(0.f,1.f,2.f,std::numeric_limits<f32>::quiet_NaN())));
-            REQUIRE(math::contains_nan(color(0.f,1.f,std::numeric_limits<f32>::quiet_NaN(),2.f)));
-            REQUIRE(math::contains_nan(color(std::numeric_limits<f32>::infinity(),1.f,2.f,3.f)));
-            REQUIRE(math::contains_nan(color(1.f,std::numeric_limits<f32>::infinity(),2.f,3.f)));
-        }
     }
     {
         REQUIRE(colors::pack_color(color(color32(1,2,3,4))) == 0x04010203);
         REQUIRE(colors::pack_color(color(color32(0x12,0x34,0x56,0x78))) == 0x78123456);
         REQUIRE(colors::unpack_color(0x04010203) == color(color32(1,2,3,4)));
         REQUIRE(colors::unpack_color(0x78123456) == color(color32(0x12,0x34,0x56,0x78)));
+
+        REQUIRE(colors::pack_color(color(0.001f,0.001f,0.001f,0.001f)) == 0x00000000);
+        REQUIRE(colors::pack_color(color(0.999f,0.999f,0.999f,0.999f)) == 0xFFFFFFFF);
     }
 }

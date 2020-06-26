@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/high/assets/text_asset.hpp>
@@ -24,9 +24,9 @@ namespace e2d
     {
         const auto asset_url = library.root() / address;
         return the<vfs>().load_as_string_async(asset_url)
-            .then([](auto&& content){
-                return text_asset::create(
-                    std::forward<decltype(content)>(content));
-            });
+        .then([](auto&& content){
+            return text_asset::create(
+                std::forward<decltype(content)>(content));
+        });
     }
 }

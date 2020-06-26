@@ -1,11 +1,10 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
-#include "json_asset.hpp"
-
+#include <enduro2d/high/assets/json_asset.hpp>
 #include <enduro2d/high/assets/text_asset.hpp>
 
 namespace
@@ -25,14 +24,22 @@ namespace e2d
         const library& library, str_view address)
     {
         return library.load_asset_async<text_asset>(address)
-            .then([](const text_asset::load_result& json_data){
-                return the<deferrer>().do_in_worker_thread([json_data](){
-                    rapidjson::Document doc;
-                    if ( doc.Parse(json_data->content().c_str()).HasParseError() ) {
-                        throw json_asset_loading_exception();
-                    }
-                    return json_asset::create(std::move(doc));
+        .then([
+            address = str(address)
+        ](const text_asset::load_result& json_data){
+            return the<deferrer>().do_in_worker_thread([
+                json_data,
+                address = std::move(address)
+            ](){
+                E2D_PROFILER_SCOPE_EX("json_asset.parsing", {
+                    {"address", address}
                 });
+                auto json = std::make_shared<rapidjson::Document>();
+                if ( json->Parse(json_data->content().c_str()).HasParseError() ) {
+                    throw json_asset_loading_exception();
+                }
+                return json_asset::create(std::move(json));
             });
+        });
     }
 }

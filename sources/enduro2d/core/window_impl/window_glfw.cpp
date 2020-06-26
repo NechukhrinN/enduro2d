@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "window.hpp"
@@ -241,6 +241,22 @@ namespace
                 return keyboard_key_action::unknown;
         }
     }
+
+    int convert_cursor_shape(window::cursor_shapes shape) noexcept {
+        #define DEFINE_CASE(x,y) case window::cursor_shapes::x: return y
+        switch ( shape ) {
+            DEFINE_CASE(arrow, GLFW_ARROW_CURSOR);
+            DEFINE_CASE(ibeam, GLFW_IBEAM_CURSOR);
+            DEFINE_CASE(crosshair, GLFW_CROSSHAIR_CURSOR);
+            DEFINE_CASE(hand, GLFW_HAND_CURSOR);
+            DEFINE_CASE(hresize, GLFW_HRESIZE_CURSOR);
+            DEFINE_CASE(vresize, GLFW_VRESIZE_CURSOR);
+            default:
+                E2D_ASSERT_MSG(false, "unexpected cursor shape");
+                return GLFW_ARROW_CURSOR;
+        }
+        #undef DEFINE_CASE
+    }
 }
 
 namespace e2d
@@ -249,41 +265,54 @@ namespace e2d
     public:
         using window_uptr = std::unique_ptr<
             GLFWwindow, void(*)(GLFWwindow*)>;
-        using listeners_t = std::vector<event_listener_uptr>;
+        using cursor_uptr = std::unique_ptr<
+            GLFWcursor, void(*)(GLFWcursor*)>;
+        using cursors_t = flat_map<cursor_shapes, cursor_uptr>;
+        using listeners_t = vector<event_listener_uptr>;
     public:
         listeners_t listeners;
         std::recursive_mutex rmutex;
         glfw_state_ptr shared_state;
+        cursors_t cursors;
         window_uptr window;
+        v2f dpi_scale;
         v2u real_size;
         v2u virtual_size;
         v2u framebuffer_size;
         str title;
         bool vsync = false;
+        bool resizable = false;
         bool fullscreen = false;
         bool cursor_hidden = false;
+        cursor_shapes cursor_shape = cursor_shapes::arrow;
     public:
-        state(const v2u& size, str_view ntitle, bool nvsync, bool nfullscreen)
+        state(const v2u& size, str_view ntitle, bool nvsync, bool nresizable, bool nfullscreen)
         : shared_state(glfw_state::get_shared_state())
+        , cursors(create_cursors_())
         , window(nullptr, glfwDestroyWindow)
         , real_size(size)
         , virtual_size(size)
         , framebuffer_size(size)
         , title(ntitle)
         , vsync(nvsync)
+        , resizable(nresizable)
         , fullscreen(nfullscreen)
         {
             window = open_window_(
                 size,
                 make_utf8(ntitle),
                 vsync,
+                resizable,
                 fullscreen);
 
             if ( !window ) {
                 throw bad_window_operation();
             }
 
-            update_window_sizes();
+            update_dpi_scale();
+            update_window_size();
+            update_framebuffer_size();
+
             glfwSetWindowUserPointer(window.get(), this);
 
             glfwSetCharCallback(window.get(), input_char_callback_);
@@ -291,7 +320,11 @@ namespace e2d
             glfwSetScrollCallback(window.get(), mouse_scroll_callback_);
             glfwSetMouseButtonCallback(window.get(), mouse_button_callback_);
             glfwSetKeyCallback(window.get(), keyboard_key_callback_);
+
+            glfwSetWindowContentScaleCallback(window.get(), window_content_scale_callback_);
             glfwSetWindowSizeCallback(window.get(), window_size_callback_);
+            glfwSetFramebufferSizeCallback(window.get(), framebuffer_size_callback_);
+
             glfwSetWindowCloseCallback(window.get(), window_close_callback_);
             glfwSetWindowFocusCallback(window.get(), window_focus_callback_);
             glfwSetWindowIconifyCallback(window.get(), window_minimize_callback_);
@@ -302,19 +335,28 @@ namespace e2d
             window.reset();
         }
 
-        void update_window_sizes() noexcept {
+        void update_dpi_scale() noexcept {
             std::lock_guard<std::recursive_mutex> guard(rmutex);
             E2D_ASSERT(window);
-            {
-                int w = 0, h = 0;
-                glfwGetWindowSize(window.get(), &w, &h);
-                real_size = make_vec2(w, h).cast_to<u32>();
-            }
-            {
-                int w = 0, h = 0;
-                glfwGetFramebufferSize(window.get(), &w, &h);
-                framebuffer_size = make_vec2(w, h).cast_to<u32>();
-            }
+            float w = 0, h = 0;
+            glfwGetWindowContentScale(window.get(), &w, &h);
+            dpi_scale = make_vec2(w, h).cast_to<f32>();
+        }
+
+        void update_window_size() noexcept {
+            std::lock_guard<std::recursive_mutex> guard(rmutex);
+            E2D_ASSERT(window);
+            int w = 0, h = 0;
+            glfwGetWindowSize(window.get(), &w, &h);
+            real_size = make_vec2(w, h).cast_to<u32>();
+        }
+
+        void update_framebuffer_size() noexcept {
+            std::lock_guard<std::recursive_mutex> guard(rmutex);
+            E2D_ASSERT(window);
+            int w = 0, h = 0;
+            glfwGetFramebufferSize(window.get(), &w, &h);
+            framebuffer_size = make_vec2(w, h).cast_to<u32>();
         }
 
         template < typename F, typename... Args >
@@ -322,7 +364,7 @@ namespace e2d
             std::lock_guard<std::recursive_mutex> guard(rmutex);
             for ( const event_listener_uptr& listener : listeners ) {
                 if ( listener ) {
-                    stdex::invoke(f, *listener.get(), args...);
+                    std::invoke(f, *listener.get(), args...);
                 }
             }
         }
@@ -331,14 +373,27 @@ namespace e2d
             double cursor_x = 0.0, cursor_y = 0.0;
             E2D_ASSERT(window);
             glfwGetCursorPos(window.get(), &cursor_x, &cursor_y);
-            listener.on_move_cursor(make_vec2(cursor_x, cursor_y).cast_to<f32>());
+            listener.on_move_cursor(make_vec2(
+                cursor_x,
+                math::numeric_cast<double>(real_size.y) - cursor_y).cast_to<f32>());
             return listener;
         }
     private:
+        static cursors_t create_cursors_() {
+            cursors_t cursors;
+            for ( const cursor_shapes shape : enum_hpp::values<cursor_shapes>() ) {
+                cursors.emplace(shape, cursor_uptr{
+                    glfwCreateStandardCursor(convert_cursor_shape(shape)),
+                    glfwDestroyCursor});
+            }
+            return cursors;
+        }
+
         static window_uptr open_window_(
             const v2u& virtual_size,
             const str& title,
             bool vsync,
+            bool resizable,
             bool fullscreen) noexcept
         {
             GLFWmonitor* monitor = glfwGetPrimaryMonitor();
@@ -349,14 +404,13 @@ namespace e2d
             if ( !video_mode ) {
                 return {nullptr, glfwDestroyWindow};
             }
-            glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
             glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
             glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
-            glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
-            glfwWindowHint(GLFW_TRANSPARENT_FRAMEBUFFER, GLFW_FALSE);
-            glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_FALSE);
+            glfwWindowHint(GLFW_RESIZABLE, resizable ? GLFW_TRUE : GLFW_FALSE);
+            glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+            glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
         #if defined(E2D_BUILD_MODE) && E2D_BUILD_MODE == E2D_BUILD_MODE_DEBUG
-            glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GL_TRUE);
+            glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
         #endif
             v2i real_size = fullscreen
                 ? make_vec2(video_mode->width, video_mode->height)
@@ -388,7 +442,7 @@ namespace e2d
             if ( self ) {
                 self->for_all_listeners(
                     &event_listener::on_move_cursor,
-                    make_vec2(pos_x, pos_y).cast_to<f32>());
+                    make_vec2(pos_x, math::numeric_cast<double>(self->real_size.y) - pos_y).cast_to<f32>());
             }
         }
 
@@ -424,11 +478,33 @@ namespace e2d
             }
         }
 
-        static void window_size_callback_(GLFWwindow* window, int w, int h) noexcept {
-            E2D_UNUSED(w, h);
+        static void window_content_scale_callback_(GLFWwindow* window, float w, float h) noexcept {
             state* self = static_cast<state*>(glfwGetWindowUserPointer(window));
             if ( self ) {
-                self->update_window_sizes();
+                self->update_dpi_scale();
+                self->for_all_listeners(
+                    &event_listener::on_window_scale,
+                    make_vec2(w,h).cast_to<f32>());
+            }
+        }
+
+        static void window_size_callback_(GLFWwindow* window, int w, int h) noexcept {
+            state* self = static_cast<state*>(glfwGetWindowUserPointer(window));
+            if ( self ) {
+                self->update_window_size();
+                self->for_all_listeners(
+                    &event_listener::on_window_size,
+                    make_vec2(w,h).cast_to<u32>());
+            }
+        }
+
+        static void framebuffer_size_callback_(GLFWwindow* window, int w, int h) noexcept {
+            state* self = static_cast<state*>(glfwGetWindowUserPointer(window));
+            if ( self ) {
+                self->update_framebuffer_size();
+                self->for_all_listeners(
+                    &event_listener::on_framebuffer_size,
+                    make_vec2(w,h).cast_to<u32>());
             }
         }
 
@@ -445,7 +521,7 @@ namespace e2d
             if ( self ) {
                 self->for_all_listeners(
                     &event_listener::on_window_focus,
-                    focused);
+                    !!focused);
             }
         }
 
@@ -454,7 +530,7 @@ namespace e2d
             if ( self ) {
                 self->for_all_listeners(
                     &event_listener::on_window_minimize,
-                    minimized);
+                    !!minimized);
             }
         }
     };
@@ -463,8 +539,8 @@ namespace e2d
     // class window
     //
 
-    window::window(const v2u& size, str_view title, bool vsync, bool fullscreen)
-    : state_(new state(size, title, vsync, fullscreen)) {}
+    window::window(const v2u& size, str_view title, bool vsync, bool resizable, bool fullscreen)
+    : state_(new state(size, title, vsync, resizable, fullscreen)) {}
     window::~window() noexcept = default;
 
     void window::hide() noexcept {
@@ -572,6 +648,31 @@ namespace e2d
         return state_->cursor_hidden;
     }
 
+    window::cursor_shapes window::cursor_shape() const noexcept {
+        std::lock_guard<std::recursive_mutex> guard(state_->rmutex);
+        return state_->cursor_shape;
+    }
+
+    bool window::set_cursor_shape(cursor_shapes shape) noexcept {
+        std::lock_guard<std::recursive_mutex> guard(state_->rmutex);
+        E2D_ASSERT(state_->window);
+        if ( shape == state_->cursor_shape ) {
+            return true;
+        }
+        const auto cursor_iter = state_->cursors.find(shape);
+        if ( cursor_iter == state_->cursors.end() || !cursor_iter->second ) {
+            return false;
+        }
+        glfwSetCursor(state_->window.get(), cursor_iter->second.get());
+        state_->cursor_shape = shape;
+        return true;
+    }
+
+    v2f window::dpi_scale() const noexcept {
+        std::lock_guard<std::recursive_mutex> guard(state_->rmutex);
+        return state_->dpi_scale;
+    }
+
     v2u window::real_size() const noexcept {
         std::lock_guard<std::recursive_mutex> guard(state_->rmutex);
         return state_->real_size;
@@ -618,6 +719,7 @@ namespace e2d
     }
 
     void window::swap_buffers() noexcept {
+        E2D_PROFILER_SCOPE("window.swap_buffers");
         std::lock_guard<std::recursive_mutex> guard(state_->rmutex);
         E2D_ASSERT(
             state_->window &&
@@ -626,6 +728,7 @@ namespace e2d
     }
 
     bool window::poll_events() noexcept {
+        E2D_PROFILER_SCOPE("window.poll_events");
         return glfw_state::poll_events();
     }
 

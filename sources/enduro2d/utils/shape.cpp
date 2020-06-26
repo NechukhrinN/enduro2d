@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "shape_impl/shape_impl.hpp"
@@ -220,13 +220,17 @@ namespace e2d
     }
 }
 
-namespace e2d { namespace shapes
+namespace e2d::shapes
 {
     bool try_load_shape(
         shape& dst,
-        const buffer& src) noexcept
+        buffer_view src) noexcept
     {
-        return impl::try_load_shape_e2d(dst, src);
+        try {
+            return impl::load_shape_e2d(dst, src);
+        } catch (...) {
+            return false;
+        }
     }
 
     bool try_load_shape(
@@ -237,4 +241,4 @@ namespace e2d { namespace shapes
         return streams::try_read_tail(file_data, src)
             && try_load_shape(dst, file_data);
     }
-}}
+}

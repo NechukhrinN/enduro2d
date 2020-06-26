@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "mesh_impl.hpp"
@@ -14,7 +14,7 @@ namespace
     const str_view mesh_file_signature = "e2d_mesh";
 
     template < typename T >
-    input_sequence& iseq_read_vector_pods(input_sequence& iseq, std::vector<T>& v) {
+    input_sequence& iseq_read_vector_pods(input_sequence& iseq, vector<T>& v) {
         return iseq.read(v.data(), v.size() * sizeof(T));
     }
 
@@ -23,9 +23,9 @@ namespace
 
         u32 file_version = 0;
         char* file_signature = static_cast<char*>(E2D_CLEAR_ALLOCA(
-            mesh_file_signature.length() + 1));
+            mesh_file_signature.size() + 1));
 
-        iseq.read(file_signature, mesh_file_signature.length())
+        iseq.read(file_signature, mesh_file_signature.size())
             .read(file_version);
 
         return iseq.success()
@@ -112,17 +112,12 @@ namespace
     }
 }
 
-namespace e2d { namespace meshes { namespace impl
+namespace e2d::meshes::impl
 {
-    bool try_load_mesh_e2d(mesh& dst, const buffer& src) noexcept {
-        try {
-            auto stream = make_memory_stream(src);
-            return stream
-                && check_signature(stream)
-                && load_mesh(dst, stream);
-        } catch (...) {
-            // nothing
-        }
-        return false;
+    bool load_mesh_e2d(mesh& dst, buffer_view src) {
+        auto stream = make_memory_stream(buffer(src));
+        return stream
+            && check_signature(stream)
+            && load_mesh(dst, stream);
     }
-}}}
+}

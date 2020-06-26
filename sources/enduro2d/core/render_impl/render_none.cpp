@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "render.hpp"
@@ -121,10 +121,6 @@ namespace e2d
     : state_(std::move(state)) {}
     index_buffer::~index_buffer() noexcept = default;
 
-    void index_buffer::update(buffer_view indices, std::size_t offset) noexcept {
-        E2D_UNUSED(indices, offset);
-    }
-
     std::size_t index_buffer::buffer_size() const noexcept {
         return 0u;
     }
@@ -140,10 +136,6 @@ namespace e2d
     vertex_buffer::vertex_buffer(internal_state_uptr state)
     : state_(std::move(state)) {}
     vertex_buffer::~vertex_buffer() noexcept = default;
-
-    void vertex_buffer::update(buffer_view vertices, std::size_t offset) noexcept {
-        E2D_UNUSED(vertices, offset);
-    }
 
     std::size_t vertex_buffer::buffer_size() const noexcept {
         return 0u;
@@ -181,28 +173,23 @@ namespace e2d
     render::~render() noexcept = default;
 
     shader_ptr render::create_shader(
-        const str& vertex_source,
-        const str& fragment_source)
+        str_view vertex_source,
+        str_view fragment_source)
     {
         E2D_UNUSED(vertex_source, fragment_source);
         return nullptr;
     }
 
     shader_ptr render::create_shader(
-        const input_stream_uptr& vertex_stream,
-        const input_stream_uptr& fragment_stream)
+        buffer_view vertex_source,
+        buffer_view fragment_source)
     {
-        E2D_UNUSED(vertex_stream, fragment_stream);
+        E2D_UNUSED(vertex_source, fragment_source);
         return nullptr;
     }
 
     texture_ptr render::create_texture(const image& image) {
         E2D_UNUSED(image);
-        return nullptr;
-    }
-
-    texture_ptr render::create_texture(const input_stream_uptr& image_stream) {
-        E2D_UNUSED(image_stream);
         return nullptr;
     }
 
@@ -256,6 +243,42 @@ namespace e2d
 
     render& render::execute(const viewport_command& command) {
         E2D_UNUSED(command);
+        return *this;
+    }
+
+    render& render::update_buffer(
+        const index_buffer_ptr& ibuffer,
+        buffer_view indices,
+        std::size_t offset)
+    {
+        E2D_UNUSED(ibuffer, indices, offset);
+        return *this;
+    }
+
+    render& render::update_buffer(
+        const vertex_buffer_ptr& vbuffer,
+        buffer_view vertices,
+        std::size_t offset)
+    {
+        E2D_UNUSED(vbuffer, vertices, offset);
+        return *this;
+    }
+
+    render& render::update_texture(
+        const texture_ptr& tex,
+        const image& img,
+        v2u offset)
+    {
+        E2D_UNUSED(tex, img, offset);
+        return *this;
+    }
+
+    render& render::update_texture(
+        const texture_ptr& tex,
+        buffer_view pixels,
+        const b2u& region)
+    {
+        E2D_UNUSED(tex, pixels, region);
         return *this;
     }
 

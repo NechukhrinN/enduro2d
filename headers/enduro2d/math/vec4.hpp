@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -15,7 +15,7 @@ namespace e2d
     template < typename T >
     class vec4 final {
         static_assert(
-            std::is_arithmetic<T>::value,
+            std::is_arithmetic_v<T>,
             "type of 'vec4' must be arithmetic");
     public:
         using self_type = vec4;
@@ -26,21 +26,21 @@ namespace e2d
         T z = 0;
         T w = 0;
     public:
-        static const vec4& zero() noexcept;
-        static const vec4& unit() noexcept;
-        static const vec4& unit_x() noexcept;
-        static const vec4& unit_y() noexcept;
-        static const vec4& unit_z() noexcept;
-        static const vec4& unit_w() noexcept;
+        static constexpr vec4 zero() noexcept;
+        static constexpr vec4 unit() noexcept;
+        static constexpr vec4 unit_x() noexcept;
+        static constexpr vec4 unit_y() noexcept;
+        static constexpr vec4 unit_z() noexcept;
+        static constexpr vec4 unit_w() noexcept;
     public:
-        vec4() noexcept = default;
-        vec4(const vec4& other) noexcept = default;
-        vec4& operator=(const vec4& other) noexcept = default;
+        constexpr vec4() noexcept = default;
+        constexpr vec4(const vec4& other) noexcept = default;
+        constexpr vec4& operator=(const vec4& other) noexcept = default;
 
-        explicit vec4(T v) noexcept;
-        vec4(T x, T y, T z, T w) noexcept;
-        explicit vec4(const vec2<T>& other, T z, T w) noexcept;
-        explicit vec4(const vec3<T>& other, T w) noexcept;
+        constexpr explicit vec4(T v) noexcept;
+        constexpr vec4(T x, T y, T z, T w) noexcept;
+        constexpr explicit vec4(const vec2<T>& other, T z, T w) noexcept;
+        constexpr explicit vec4(const vec3<T>& other, T w) noexcept;
 
         template < typename To >
         vec4<To> cast_to() const noexcept;
@@ -49,7 +49,7 @@ namespace e2d
         const T* data() const noexcept;
 
         T& operator[](std::size_t index) noexcept;
-        T  operator[](std::size_t index) const noexcept;
+        T operator[](std::size_t index) const noexcept;
 
         vec4& operator+=(T v) noexcept;
         vec4& operator-=(T v) noexcept;
@@ -66,64 +66,58 @@ namespace e2d
 namespace e2d
 {
     template < typename T >
-    const vec4<T>& vec4<T>::zero() noexcept {
-        static const vec4<T> zero{0, 0, 0, 0};
-        return zero;
+    constexpr vec4<T> vec4<T>::zero() noexcept {
+        return {0, 0, 0, 0};
     }
 
     template < typename T >
-    const vec4<T>& vec4<T>::unit() noexcept {
-        static const vec4<T> unit{1, 1, 1, 1};
-        return unit;
+    constexpr vec4<T> vec4<T>::unit() noexcept {
+        return {1, 1, 1, 1};
     }
 
     template < typename T >
-    const vec4<T>& vec4<T>::unit_x() noexcept {
-        static const vec4<T> unit_x{1, 0, 0, 0};
-        return unit_x;
+    constexpr vec4<T> vec4<T>::unit_x() noexcept {
+        return {1, 0, 0, 0};
     }
 
     template < typename T >
-    const vec4<T>& vec4<T>::unit_y() noexcept {
-        static const vec4<T> unit_y{0, 1, 0, 0};
-        return unit_y;
+    constexpr vec4<T> vec4<T>::unit_y() noexcept {
+        return {0, 1, 0, 0};
     }
 
     template < typename T >
-    const vec4<T>& vec4<T>::unit_z() noexcept {
-        static const vec4<T> unit_z{0, 0, 1, 0};
-        return unit_z;
+    constexpr vec4<T> vec4<T>::unit_z() noexcept {
+        return {0, 0, 1, 0};
     }
 
     template < typename T >
-    const vec4<T>& vec4<T>::unit_w() noexcept {
-        static const vec4<T> unit_w{0, 0, 0, 1};
-        return unit_w;
+    constexpr vec4<T> vec4<T>::unit_w() noexcept {
+        return {0, 0, 0, 1};
     }
 
     template < typename T >
-    vec4<T>::vec4(T v) noexcept
+    constexpr vec4<T>::vec4(T v) noexcept
     : x(v)
     , y(v)
     , z(v)
     , w(v) {}
 
     template < typename T >
-    vec4<T>::vec4(T nx, T ny, T nz, T nw) noexcept
+    constexpr vec4<T>::vec4(T nx, T ny, T nz, T nw) noexcept
     : x(nx)
     , y(ny)
     , z(nz)
     , w(nw) {}
 
     template < typename T >
-    vec4<T>::vec4(const vec2<T>& other, T nz, T nw) noexcept
+    constexpr vec4<T>::vec4(const vec2<T>& other, T nz, T nw) noexcept
     : x(other.x)
     , y(other.y)
     , z(nz)
     , w(nw) {}
 
     template < typename T >
-    vec4<T>::vec4(const vec3<T>& other, T nw) noexcept
+    constexpr vec4<T>::vec4(const vec3<T>& other, T nw) noexcept
     : x(other.x)
     , y(other.y)
     , z(other.z)
@@ -246,22 +240,22 @@ namespace e2d
     //
 
     template < typename T >
-    vec4<T> make_vec4(T v) noexcept {
+    constexpr vec4<T> make_vec4(T v) noexcept {
         return vec4<T>(v);
     }
 
     template < typename T >
-    vec4<T> make_vec4(T x, T y, T z, T w) noexcept {
+    constexpr vec4<T> make_vec4(T x, T y, T z, T w) noexcept {
         return vec4<T>(x, y, z, w);
     }
 
     template < typename T >
-    vec4<T> make_vec4(const vec2<T>& other, T z, T w) noexcept {
+    constexpr vec4<T> make_vec4(const vec2<T>& other, T z, T w) noexcept {
         return vec4<T>(other, z, w);
     }
 
     template < typename T >
-    vec4<T> make_vec4(const vec3<T>& other, T w) noexcept {
+    constexpr vec4<T> make_vec4(const vec3<T>& other, T w) noexcept {
         return vec4<T>(other, w);
     }
 
@@ -312,8 +306,17 @@ namespace e2d
     }
 
     //
-    // (-) vec4
+    // (+,-) vec4
     //
+
+    template < typename T >
+    vec4<T> operator+(const vec4<T>& v) noexcept {
+        return {
+            +v.x,
+            +v.y,
+            +v.z,
+            +v.w};
+    }
 
     template < typename T >
     vec4<T> operator-(const vec4<T>& v) noexcept {
@@ -454,7 +457,7 @@ namespace e2d
     }
 }
 
-namespace e2d { namespace math
+namespace e2d::math
 {
     //
     // approximately
@@ -505,7 +508,7 @@ namespace e2d { namespace math
     }
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, T>
+    std::enable_if_t<std::is_floating_point_v<T>, T>
     length(const vec4<T>& v) noexcept {
         return math::sqrt(length_squared(v));
     }
@@ -525,7 +528,7 @@ namespace e2d { namespace math
     }
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, T>
+    std::enable_if_t<std::is_floating_point_v<T>, T>
     distance(const vec4<T>& l, const vec4<T>& r) noexcept {
         return math::sqrt(distance_squared(l, r));
     }
@@ -535,7 +538,7 @@ namespace e2d { namespace math
     //
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, vec4<T>>
+    std::enable_if_t<std::is_floating_point_v<T>, vec4<T>>
     normalized(
         const vec4<T>& v,
         T precision = math::default_precision<T>()) noexcept
@@ -553,12 +556,12 @@ namespace e2d { namespace math
 
     template < typename T >
     T minimum(const vec4<T>& v) noexcept {
-        return math::min(math::min(math::min(v.x, v.y), v.z), v.w);
+        return math::min(v.x, v.y, v.z, v.w);
     }
 
     template < typename T >
     T maximum(const vec4<T>& v) noexcept {
-        return math::max(math::max(math::max(v.x, v.y), v.z), v.w);
+        return math::max(v.x, v.y, v.z, v.w);
     }
 
     //
@@ -627,17 +630,4 @@ namespace e2d { namespace math
             math::inverse_lerp(l.z, r.z, v.z),
             math::inverse_lerp(l.w, r.w, v.w)};
     }
-
-    //
-    // contains_nan
-    //
-
-    template < typename T >
-    bool contains_nan(const vec4<T>& v) noexcept {
-        return
-            !math::is_finite(v.x) ||
-            !math::is_finite(v.y) ||
-            !math::is_finite(v.z) ||
-            !math::is_finite(v.w);
-    }
-}}
+}

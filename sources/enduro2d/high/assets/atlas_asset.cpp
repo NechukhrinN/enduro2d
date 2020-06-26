@@ -1,12 +1,12 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/high/assets/atlas_asset.hpp>
 
-#include "json_asset.hpp"
+#include <enduro2d/high/assets/json_asset.hpp>
 #include <enduro2d/high/assets/sprite_asset.hpp>
 #include <enduro2d/high/assets/texture_asset.hpp>
 
@@ -20,8 +20,7 @@ namespace
         }
     };
 
-    const char* atlas_asset_schema_source = R"json(
-    {
+    const char* atlas_asset_schema_source = R"json({
         "type" : "object",
         "required" : [ "texture" ],
         "additionalProperties" : false,
@@ -35,14 +34,24 @@ namespace
                 "items" : { "$ref": "#/definitions/sprite" }
             },
             "sprite" : {
-                "type" : "object",
-                "required" : [ "name", "pivot", "texrect" ],
-                "additionalProperties" : false,
-                "properties" : {
-                    "name" : { "$ref": "#/common_definitions/name" },
-                    "pivot" : { "$ref": "#/common_definitions/v2" },
-                    "texrect" : { "$ref": "#/common_definitions/b2" }
-                }
+                "anyOf" : [{
+                    "type" : "object",
+                    "required" : [ "name", "texrect" ],
+                    "additionalProperties" : false,
+                    "properties" : {
+                        "name" : { "$ref": "#/common_definitions/name" },
+                        "texrect" : { "$ref": "#/common_definitions/b2" }
+                    }
+                },{
+                    "type" : "object",
+                    "required" : [ "name", "inner_texrect", "outer_texrect" ],
+                    "additionalProperties" : false,
+                    "properties" : {
+                        "name" : { "$ref": "#/common_definitions/name" },
+                        "inner_texrect" : { "$ref": "#/common_definitions/b2" },
+                        "outer_texrect" : { "$ref": "#/common_definitions/b2" }
+                    }
+                }]
             }
         }
     })json";
@@ -67,8 +76,8 @@ namespace
 
     struct sprite_desc {
         str_hash name;
-        v2f pivot;
-        b2f texrect;
+        b2f inner_texrect;
+        b2f outer_texrect;
     };
 
     bool parse_sprites(
@@ -84,17 +93,32 @@ namespace
 
             E2D_ASSERT(sprite_json.HasMember("name"));
             if ( !json_utils::try_parse_value(sprite_json["name"], tsprite_descs[i].name) ) {
+                the<debug>().error("ATLAS: Incorrect formatting of 'name' property");
                 return false;
             }
 
-            E2D_ASSERT(sprite_json.HasMember("pivot"));
-            if ( !json_utils::try_parse_value(sprite_json["pivot"], tsprite_descs[i].pivot) ) {
-                return false;
-            }
+            E2D_ASSERT(
+                sprite_json.HasMember("texrect") ||
+                (sprite_json.HasMember("inner_texrect") && sprite_json.HasMember("outer_texrect")));
 
-            E2D_ASSERT(sprite_json.HasMember("texrect"));
-            if ( !json_utils::try_parse_value(sprite_json["texrect"], tsprite_descs[i].texrect) ) {
-                return false;
+            if ( sprite_json.HasMember("texrect") ) {
+                b2f texrect;
+                if ( !json_utils::try_parse_value(sprite_json["texrect"], texrect) ) {
+                    the<debug>().error("ATLAS: Incorrect formatting of 'texrect' property");
+                    return false;
+                }
+                tsprite_descs[i].inner_texrect = texrect;
+                tsprite_descs[i].outer_texrect = texrect;
+            } else {
+                if ( !json_utils::try_parse_value(sprite_json["inner_texrect"], tsprite_descs[i].inner_texrect) ) {
+                    the<debug>().error("ATLAS: Incorrect formatting of 'inner_texrect' property");
+                    return false;
+                }
+
+                if ( !json_utils::try_parse_value(sprite_json["outer_texrect"], tsprite_descs[i].outer_texrect) ) {
+                    the<debug>().error("ATLAS: Incorrect formatting of 'outer_texrect' property");
+                    return false;
+                }
             }
         }
 
@@ -130,8 +154,8 @@ namespace
             nested_content ncontent;
             for ( const sprite_desc& desc : sprite_descs ) {
                 sprite spr;
-                spr.set_pivot(desc.pivot);
-                spr.set_texrect(desc.texrect);
+                spr.set_inner_texrect(desc.inner_texrect);
+                spr.set_outer_texrect(desc.outer_texrect);
                 spr.set_texture(texture);
                 ncontent.insert(std::make_pair(desc.name, sprite_asset::create(std::move(spr))));
             }
@@ -149,18 +173,35 @@ namespace e2d
         return library.load_asset_async<json_asset>(address)
         .then([
             &library,
+            address = str(address),
             parent_address = path::parent_path(address)
         ](const json_asset::load_result& atlas_data){
-            return the<deferrer>().do_in_worker_thread([atlas_data](){
-                const rapidjson::Document& doc = atlas_data->content();
+            return the<deferrer>().do_in_worker_thread([address, atlas_data](){
+                const rapidjson::Document& doc = *atlas_data->content();
                 rapidjson::SchemaValidator validator(atlas_asset_schema());
-                if ( !doc.Accept(validator) ) {
-                    throw atlas_asset_loading_exception();
+
+                if ( doc.Accept(validator) ) {
+                    return;
                 }
+
+                rapidjson::StringBuffer sb;
+                if ( validator.GetInvalidDocumentPointer().StringifyUriFragment(sb) ) {
+                    the<debug>().error("ASSET: Failed to validate asset json:\n"
+                        "--> Address: %0\n"
+                        "--> Invalid schema keyword: %1\n"
+                        "--> Invalid document pointer: %2",
+                        address,
+                        validator.GetInvalidSchemaKeyword(),
+                        sb.GetString());
+                } else {
+                    the<debug>().error("ASSET: Failed to validate asset json");
+                }
+
+                throw atlas_asset_loading_exception();
             })
             .then([&library, parent_address, atlas_data](){
                 return parse_atlas(
-                    library, parent_address, atlas_data->content());
+                    library, parent_address, *atlas_data->content());
             })
             .then([](const parse_atlas_result& result){
                 return atlas_asset::create(

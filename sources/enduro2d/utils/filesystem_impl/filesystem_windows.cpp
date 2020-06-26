@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "enduro2d"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "filesystem.hpp"
@@ -51,7 +51,7 @@ namespace
     bool extract_working_directory(str& dst) {
         WCHAR buf[MAX_PATH + 1] = {0};
         const DWORD len = ::GetCurrentDirectoryW(
-            math::numeric_cast<DWORD>(E2D_COUNTOF(buf) - 1),
+            math::numeric_cast<DWORD>(std::size(buf) - 1),
             buf);
         if ( len > 0 && len <= MAX_PATH ) {
             dst = make_utf8(buf);
@@ -74,7 +74,7 @@ namespace
         const DWORD len = ::GetModuleFileNameW(
             0,
             buf,
-            math::numeric_cast<DWORD>(E2D_COUNTOF(buf) - 1));
+            math::numeric_cast<DWORD>(std::size(buf) - 1));
         if ( len > 0 && len <= MAX_PATH ) {
             dst = make_utf8(buf);
             return true;
@@ -92,7 +92,7 @@ namespace
     }
 }
 
-namespace e2d { namespace filesystem { namespace impl
+namespace e2d::filesystem::impl
 {
     bool remove_file(str_view path) {
         const wstr wide_path = make_wide(path);
@@ -169,6 +169,6 @@ namespace e2d { namespace filesystem { namespace impl
                 return false;
         }
     }
-}}}
+}
 
 #endif

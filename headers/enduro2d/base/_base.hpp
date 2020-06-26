@@ -1,13 +1,14 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
 
 #include <cmath>
 #include <cstdio>
+#include <cerrno>
 #include <climits>
 #include <cstring>
 #include <cstdint>
@@ -19,13 +20,13 @@
 #include <atomic>
 #include <thread>
 
-#include <set>
-#include <map>
 #include <tuple>
 #include <array>
 #include <bitset>
 #include <string>
 #include <vector>
+#include <variant>
+#include <optional>
 #include <unordered_set>
 #include <unordered_map>
 

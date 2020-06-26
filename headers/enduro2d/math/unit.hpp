@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -13,7 +13,7 @@ namespace e2d
     template < typename T, typename Tag >
     class unit final {
         static_assert(
-            std::is_arithmetic<T>::value,
+            std::is_arithmetic_v<T>,
             "type of 'unit' must be arithmetic");
     public:
         using self_type = unit;
@@ -22,12 +22,15 @@ namespace e2d
     public:
         T value = 0;
     public:
-        unit() noexcept = default;
-        unit(const unit& other) noexcept = default;
-        unit& operator=(const unit& other) noexcept = default;
+        static constexpr unit zero() noexcept;
+    public:
+        constexpr unit() noexcept = default;
+        constexpr unit(const unit& other) noexcept = default;
+        constexpr unit& operator=(const unit& other) noexcept = default;
 
-        explicit unit(T v) noexcept;
-        unit(T v, Tag tag) noexcept;
+        constexpr explicit unit(T v) noexcept;
+        constexpr unit(T v, Tag tag) noexcept;
+
         template < typename OtherTag >
         explicit unit(const unit<T, OtherTag>& other) noexcept;
 
@@ -59,11 +62,16 @@ namespace e2d
 namespace e2d
 {
     template < typename T, typename Tag >
-    unit<T, Tag>::unit(T v) noexcept
+    constexpr unit<T, Tag> unit<T, Tag>::zero() noexcept {
+        return unit<T, Tag>(0);
+    }
+
+    template < typename T, typename Tag >
+    constexpr unit<T, Tag>::unit(T v) noexcept
     : value(v) {}
 
     template < typename T, typename Tag >
-    unit<T, Tag>::unit(T v, Tag tag) noexcept
+    constexpr unit<T, Tag>::unit(T v, Tag tag) noexcept
     : value(v) { E2D_UNUSED(tag); }
 
     template < typename T, typename Tag >
@@ -116,7 +124,7 @@ namespace e2d
     //
 
     template < typename Tag, typename T >
-    unit<T, Tag> make_unit(T v) noexcept {
+    constexpr unit<T, Tag> make_unit(T v) noexcept {
         return unit<T, Tag>(v);
     }
 
@@ -159,8 +167,15 @@ namespace e2d
     }
 
     //
-    // (-) unit
+    // (+,-) unit
     //
+
+    template < typename T, typename Tag >
+    unit<T, Tag> operator+(const unit<T, Tag>& u) noexcept {
+        return {
+            +u.value,
+            Tag{}};
+    }
 
     template < typename T, typename Tag >
     unit<T, Tag> operator-(const unit<T, Tag>& u) noexcept {
@@ -226,7 +241,7 @@ namespace e2d
     }
 }
 
-namespace e2d { namespace math
+namespace e2d::math
 {
     //
     // approximately
@@ -270,13 +285,4 @@ namespace e2d { namespace math
     unit<T, Tag> saturated(const unit<T, Tag>& u) noexcept {
         return clamped(u, {T(0), Tag{}}, {T(1), Tag{}});
     }
-
-    //
-    // contains_nan
-    //
-
-    template < typename T, typename Tag >
-    bool contains_nan(const unit<T, Tag>& u) noexcept {
-        return !math::is_finite(u.value);
-    }
-}}
+}

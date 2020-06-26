@@ -1,13 +1,12 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/high/systems/flipbook_system.hpp>
 
 #include <enduro2d/high/components/flipbook_player.hpp>
-#include <enduro2d/high/components/flipbook_source.hpp>
 #include <enduro2d/high/components/sprite_renderer.hpp>
 
 namespace
@@ -15,15 +14,14 @@ namespace
     using namespace e2d;
 
     void update_flipbook_timers(f32 dt, ecs::registry& owner) {
-        owner.for_joined_components<flipbook_player, flipbook_source>([dt](
+        owner.for_joined_components<flipbook_player>([dt](
             const ecs::const_entity&,
-            flipbook_player& fp,
-            const flipbook_source& fs)
+            flipbook_player& fp)
         {
             if ( fp.speed() <= 0.f || fp.stopped() ) {
                 return;
             }
-            const flipbook_asset::ptr& flipbook_res = fs.flipbook();
+            const flipbook_asset::ptr& flipbook_res = fp.flipbook();
             if ( !flipbook_res ) {
                 return;
             }
@@ -47,13 +45,12 @@ namespace
     }
 
     void update_flipbook_sprites(ecs::registry& owner) {
-        owner.for_joined_components<flipbook_player, flipbook_source, sprite_renderer>([](
+        owner.for_joined_components<flipbook_player, sprite_renderer>([](
             const ecs::const_entity&,
             const flipbook_player& fp,
-            const flipbook_source& fs,
             sprite_renderer& sr)
         {
-            const flipbook_asset::ptr& flipbook_res = fs.flipbook();
+            const flipbook_asset::ptr& flipbook_res = fp.flipbook();
             if ( !flipbook_res ) {
                 sr.sprite(nullptr);
                 return;
@@ -85,8 +82,8 @@ namespace e2d
         internal_state() = default;
         ~internal_state() noexcept = default;
 
-        void process(ecs::registry& owner) {
-            update_flipbook_timers(the<engine>().delta_time(), owner);
+        void process_update(f32 dt, ecs::registry& owner) {
+            update_flipbook_timers(dt, owner);
             update_flipbook_sprites(owner);
         }
     };
@@ -99,7 +96,11 @@ namespace e2d
     : state_(new internal_state()) {}
     flipbook_system::~flipbook_system() noexcept = default;
 
-    void flipbook_system::process(ecs::registry& owner) {
-        state_->process(owner);
+    void flipbook_system::process(
+        ecs::registry& owner,
+        const ecs::after<systems::update_event>& trigger)
+    {
+        E2D_PROFILER_SCOPE("flipbook_system.process_update");
+        state_->process_update(trigger.event.dt, owner);
     }
 }

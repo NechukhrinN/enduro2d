@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -19,6 +19,14 @@ namespace e2d
 
     class window final : public module<window> {
     public:
+        ENUM_HPP_CLASS_DECL(cursor_shapes, u8,
+            (arrow)
+            (ibeam)
+            (crosshair)
+            (hand)
+            (hresize)
+            (vresize))
+
         class event_listener : private e2d::noncopyable {
         public:
             virtual ~event_listener() noexcept = default;
@@ -27,13 +35,16 @@ namespace e2d
             virtual void on_mouse_scroll(const v2f& delta) noexcept;
             virtual void on_mouse_button(mouse_button btn, mouse_button_action act) noexcept;
             virtual void on_keyboard_key(keyboard_key key, u32 scancode, keyboard_key_action act) noexcept;
+            virtual void on_window_size(const v2u& size) noexcept;
+            virtual void on_window_scale(const v2f& scale) noexcept;
+            virtual void on_framebuffer_size(const v2u& size) noexcept;
             virtual void on_window_close() noexcept;
             virtual void on_window_focus(bool focused) noexcept;
             virtual void on_window_minimize(bool minimized) noexcept;
         };
         using event_listener_uptr = std::unique_ptr<event_listener>;
     public:
-        window(const v2u& size, str_view title, bool vsync, bool fullscreen);
+        window(const v2u& size, str_view title, bool vsync, bool resizable, bool fullscreen);
         ~window() noexcept final;
 
         void hide() noexcept;
@@ -53,6 +64,10 @@ namespace e2d
         void show_cursor() noexcept;
         bool is_cursor_hidden() const noexcept;
 
+        cursor_shapes cursor_shape() const noexcept;
+        bool set_cursor_shape(cursor_shapes shape) noexcept;
+
+        v2f dpi_scale() const noexcept;
         v2u real_size() const noexcept;
         v2u virtual_size() const noexcept;
         v2u framebuffer_size() const noexcept;
@@ -76,19 +91,36 @@ namespace e2d
         std::unique_ptr<state> state_;
     };
 
-    class window_trace_event_listener final : public window::event_listener {
+    ENUM_HPP_REGISTER_TRAITS(window::cursor_shapes)
+
+    class window_event_tracer final : public window::event_listener {
     public:
-        window_trace_event_listener(debug& debug) noexcept;
+        window_event_tracer(debug& debug) noexcept;
         void on_input_char(char32_t uchar) noexcept final;
         void on_move_cursor(const v2f& pos) noexcept final;
         void on_mouse_scroll(const v2f& delta) noexcept final;
         void on_mouse_button(mouse_button btn, mouse_button_action act) noexcept final;
         void on_keyboard_key(keyboard_key key, u32 scancode, keyboard_key_action act) noexcept final;
+        void on_window_size(const v2u& size) noexcept final;
+        void on_window_scale(const v2f& scale) noexcept final;
+        void on_framebuffer_size(const v2u& size) noexcept final;
         void on_window_close() noexcept final;
         void on_window_focus(bool focused) noexcept final;
         void on_window_minimize(bool minimized) noexcept final;
     private:
         debug& debug_;
+    };
+
+    class window_input_source final : public window::event_listener {
+    public:
+        window_input_source(input& input) noexcept;
+        void on_input_char(char32_t uchar) noexcept final;
+        void on_move_cursor(const v2f& pos) noexcept final;
+        void on_mouse_scroll(const v2f& delta) noexcept final;
+        void on_mouse_button(mouse_button btn, mouse_button_action act) noexcept final;
+        void on_keyboard_key(keyboard_key key, u32 scancode, keyboard_key_action act) noexcept final;
+    private:
+        input& input_;
     };
 }
 

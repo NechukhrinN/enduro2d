@@ -1,0 +1,72 @@
+{
+    "prefab" : "../prefabs/scene_prefab.json",
+    "children" : [{
+        "prefab" : "../prefabs/background_prefab.json"
+    },{
+        "prefab" : "../prefabs/camera_prefab.json"
+    },{
+        "prefab" : "../prefabs/panel_prefab.json",
+        "components" : {
+            "sprite_renderer" : {
+                "scale" : [4,2]
+            }
+        },
+        "children" : [{
+            "prefab" : "../prefabs/layout_prefab.json",
+            "components" : {
+                "layout" : {
+                    "justify_content" : "space_evenly"
+                },
+                "widget" : {
+                    "size" : [400,200]
+                }
+            },
+            "children" : [{
+                "prefab" : "../prefabs/widget_prefab.json",
+                "components" : {
+                    "widget" : {
+                        "size" : [66,113]
+                    }
+                },
+                "children" : [{
+                    "prefab" : "../prefabs/ship_prefab.json",
+                    "components" : {
+                        "actor" : {
+                            "translation" : [33,56.5]
+                        }
+                    }
+                }]
+            },{
+                "prefab" : "../prefabs/widget_prefab.json",
+                "components" : {
+                    "widget" : {
+                        "size" : [66,113]
+                    }
+                },
+                "children" : [{
+                    "prefab" : "../prefabs/ship_prefab.json",
+                    "components" : {
+                        "actor" : {
+                            "translation" : [33,56.5]
+                        }
+                    }
+                }]
+            },{
+                "prefab" : "../prefabs/widget_prefab.json",
+                "components" : {
+                    "widget" : {
+                        "size" : [66,113]
+                    }
+                },
+                "children" : [{
+                    "prefab" : "../prefabs/ship_prefab.json",
+                    "components" : {
+                        "actor" : {
+                            "translation" : [33,56.5]
+                        }
+                    }
+                }]
+            }]
+        }]
+    }]
+}

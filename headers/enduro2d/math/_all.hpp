@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -12,7 +12,6 @@
 #include "mat2.hpp"
 #include "mat3.hpp"
 #include "mat4.hpp"
-#include "quat.hpp"
 #include "rect.hpp"
 #include "trig.hpp"
 #include "trs2.hpp"

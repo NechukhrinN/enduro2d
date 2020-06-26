@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -9,12 +9,17 @@
 #include "../base/_all.hpp"
 #include "../math/_all.hpp"
 
+#include <enum.hpp/enum.hpp>
+
 namespace e2d
 {
     class buffer;
     class buffer_view;
     class color;
     class color32;
+    class read_file;
+    class write_file;
+    class font;
     class image;
     class mesh;
     class shape;
@@ -39,13 +44,13 @@ namespace e2d
 
 namespace e2d
 {
-    using str   = basic_string<char>;
-    using wstr  = basic_string<wchar_t>;
+    using str = basic_string<char>;
+    using wstr = basic_string<wchar_t>;
     using str16 = basic_string<char16_t>;
     using str32 = basic_string<char32_t>;
 
-    using str_view   = basic_string_view<char>;
-    using wstr_view  = basic_string_view<wchar_t>;
+    using str_view = basic_string_view<char>;
+    using wstr_view = basic_string_view<wchar_t>;
     using str16_view = basic_string_view<char16_t>;
     using str32_view = basic_string_view<char32_t>;
 
@@ -68,6 +73,12 @@ namespace e2d
 
 namespace e2d
 {
+    struct nonesuch {
+        ~nonesuch() = delete;
+        nonesuch(const nonesuch&) = delete;
+        void operator=(const nonesuch&) = delete;
+    };
+
     class noncopyable {
     public:
         noncopyable(const noncopyable&) = delete;
@@ -86,7 +97,7 @@ namespace e2d
     };
 }
 
-namespace e2d { namespace utils
+namespace e2d::utils
 {
     //
     // sdbm_hash
@@ -105,10 +116,10 @@ namespace e2d { namespace utils
             return init;
         }
 
-        template < typename Char >
-        u32 sdbm_hash_impl(u32 init, const Char* begin, const Char* const end) noexcept {
-            while ( begin != end ) {
-                init = (*begin++) + (init << 6u) + (init << 16u) - init;
+        template < typename Iter >
+        u32 sdbm_hash_impl(u32 init, Iter first, Iter last) noexcept {
+            while ( first != last ) {
+                init = (*first++) + (init << 6u) + (init << 16u) - init;
             }
             return init;
         }
@@ -120,10 +131,14 @@ namespace e2d { namespace utils
         return impl::sdbm_hash_impl(0u, str);
     }
 
-    template < typename Char >
-    u32 sdbm_hash(const Char* begin, const Char* const end) noexcept {
-        E2D_ASSERT(begin <= end);
-        return impl::sdbm_hash_impl(0u, begin, end);
+    template < typename Char, typename Traits >
+    u32 sdbm_hash(basic_string_view<Char, Traits> str) noexcept {
+        return impl::sdbm_hash_impl(0u, str.cbegin(), str.cend());
+    }
+
+    template < typename Iter >
+    u32 sdbm_hash(Iter first, Iter last) noexcept {
+        return impl::sdbm_hash_impl(0u, first, last);
     }
 
     template < typename Char >
@@ -132,10 +147,22 @@ namespace e2d { namespace utils
         return impl::sdbm_hash_impl(init, str);
     }
 
-    template < typename Char >
-    u32 sdbm_hash(u32 init, const Char* begin, const Char* const end) noexcept {
-        E2D_ASSERT(begin <= end);
-        return impl::sdbm_hash_impl(init, begin, end);
+    template < typename Char, typename Traits >
+    u32 sdbm_hash(u32 init, basic_string_view<Char, Traits> str) noexcept {
+        return impl::sdbm_hash_impl(init, str.cbegin(), str.cend());
+    }
+
+    template < typename Iter >
+    u32 sdbm_hash(u32 init, Iter first, Iter last) noexcept {
+        return impl::sdbm_hash_impl(init, first, last);
+    }
+
+    //
+    // hash_combine
+    //
+
+    inline std::size_t hash_combine(std::size_t l, std::size_t r) noexcept {
+        return l ^ (r + 0x9e3779b9 + (l << 6) + (l >> 2));
     }
 
     //
@@ -143,8 +170,85 @@ namespace e2d { namespace utils
     //
 
     template < typename E
-             , typename = std::enable_if<std::is_enum<E>::value> >
+             , typename = std::enable_if<std::is_enum_v<E>> >
     constexpr std::underlying_type_t<E> enum_to_underlying(E e) noexcept {
         return static_cast<std::underlying_type_t<E>>(e);
     }
-}}
+
+    //
+    // type_family
+    //
+
+    using type_family_id = u32;
+
+    namespace impl
+    {
+        template < typename Void = void >
+        class type_family_base {
+            static_assert(
+                std::is_void_v<Void> &&
+                std::is_unsigned_v<type_family_id>,
+                "unexpected internal error");
+        protected:
+            static type_family_id last_id_;
+        };
+
+        template < typename Void >
+        type_family_id type_family_base<Void>::last_id_ = 0u;
+    }
+
+    template < typename T >
+    class type_family final : public impl::type_family_base<> {
+    public:
+        static type_family_id id() noexcept {
+            static type_family_id self_id = ++last_id_;
+            E2D_ASSERT_MSG(self_id > 0u, "type_family_id overflow");
+            return self_id;
+        }
+    };
+
+    //
+    // overloaded
+    //
+
+    template < typename... Ts >
+    struct overloaded : Ts... {
+        using Ts::operator()...;
+    };
+
+    template < typename... Ts >
+    overloaded(Ts...) -> overloaded<Ts...>;
+
+    //
+    // detected
+    //
+
+    namespace impl
+    {
+        template < typename Default
+                 , typename AlwaysVoid
+                 , template < typename... > class Op
+                 , typename... Args >
+        struct detector {
+            using value_t = std::false_type;
+            using type = Default;
+        };
+
+        template < typename Default
+                 , template < typename... > class Op
+                 , typename... Args >
+        struct detector<Default, std::void_t<Op<Args...>>, Op, Args...> {
+            using value_t = std::true_type;
+            using type = Op<Args...>;
+        };
+    }
+
+    template < template < typename... > class Op, typename... Args >
+    using is_detected = typename impl::detector<nonesuch, void, Op, Args...>::value_t;
+
+    template < template < typename... > class Op, typename... Args >
+    using detected_t = typename impl::detector<nonesuch, void, Op, Args...>::type;
+
+    template < typename Default, template < typename... > class Op, typename... Args >
+    using detected_or = impl::detector<Default, void, Op, Args...>;
+}

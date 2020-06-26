@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #define CATCH_CONFIG_MAIN
@@ -314,28 +314,6 @@ TEST_CASE("math") {
         REQUIRE(math::next_power_of_2(u32(9)) == u32(16));
     }
     {
-        REQUIRE(math::is_finite(0));
-        REQUIRE(math::is_finite(0u));
-
-        REQUIRE(math::is_finite(0.f));
-        REQUIRE(math::is_finite(1.f));
-        REQUIRE(math::is_finite(-1.f));
-
-        REQUIRE(math::is_finite(0.0));
-        REQUIRE(math::is_finite(1.0));
-        REQUIRE(math::is_finite(-1.0));
-
-        REQUIRE_FALSE(math::is_finite(std::numeric_limits<f32>::quiet_NaN()));
-        REQUIRE_FALSE(math::is_finite(std::numeric_limits<f32>::signaling_NaN()));
-        REQUIRE_FALSE(math::is_finite(std::numeric_limits<f32>::infinity()));
-        REQUIRE_FALSE(math::is_finite(-std::numeric_limits<f32>::infinity()));
-
-        REQUIRE_FALSE(math::is_finite(std::numeric_limits<f64>::quiet_NaN()));
-        REQUIRE_FALSE(math::is_finite(std::numeric_limits<f64>::signaling_NaN()));
-        REQUIRE_FALSE(math::is_finite(std::numeric_limits<f64>::infinity()));
-        REQUIRE_FALSE(math::is_finite(-std::numeric_limits<f64>::infinity()));
-    }
-    {
         REQUIRE(math::abs(2) == 2);
         REQUIRE(math::abs(3u) == 3u);
         REQUIRE(math::abs(-4) == 4);
@@ -462,17 +440,58 @@ TEST_CASE("math") {
         REQUIRE(math::approximately(math::round(-0.6f), -1.f));
     }
     {
+        REQUIRE(math::min(1) == 1);
+
         REQUIRE(math::min(1,1) == 1);
         REQUIRE(math::min(1,2) == 1);
         REQUIRE(math::min(2,1) == 1);
+
+        REQUIRE(math::min(1,1,1) == 1);
+        REQUIRE(math::min(2,1,1) == 1);
+        REQUIRE(math::min(1,2,1) == 1);
+        REQUIRE(math::min(1,1,2) == 1);
+        REQUIRE(math::min(2,3,4) == 2);
+        REQUIRE(math::min(2,4,3) == 2);
+
+        REQUIRE(math::min(2,3,4,5) == 2);
+        REQUIRE(math::min(2,4,3,5) == 2);
+        REQUIRE(math::min(5,3,4,2) == 2);
+        REQUIRE(math::min(5,4,3,2) == 2);
+    }
+    {
+
+        REQUIRE(math::max(1) == 1);
 
         REQUIRE(math::max(1,1) == 1);
         REQUIRE(math::max(1,2) == 2);
         REQUIRE(math::max(2,1) == 2);
 
+        REQUIRE(math::max(1,1,1) == 1);
+        REQUIRE(math::max(2,1,1) == 2);
+        REQUIRE(math::max(1,2,1) == 2);
+        REQUIRE(math::max(1,1,2) == 2);
+        REQUIRE(math::max(2,3,4) == 4);
+
+        REQUIRE(math::max(2,3,4,5) == 5);
+        REQUIRE(math::max(2,4,3,5) == 5);
+        REQUIRE(math::max(5,3,4,2) == 5);
+        REQUIRE(math::max(5,4,3,2) == 5);
+    }
+    {
+        REQUIRE(math::minmax(1) == std::make_pair(1,1));
+
         REQUIRE(math::minmax(1,2) == std::make_pair(1,2));
         REQUIRE(math::minmax(2,1) == std::make_pair(1,2));
 
+        REQUIRE(math::minmax(1,2,3) == std::make_pair(1,3));
+        REQUIRE(math::minmax(3,2,1) == std::make_pair(1,3));
+
+        REQUIRE(math::minmax(1,2,3,4) == std::make_pair(1,4));
+        REQUIRE(math::minmax(1,3,2,4) == std::make_pair(1,4));
+        REQUIRE(math::minmax(4,2,3,1) == std::make_pair(1,4));
+        REQUIRE(math::minmax(4,3,2,1) == std::make_pair(1,4));
+    }
+    {
         REQUIRE(math::clamp(2,1,3) == 2);
         REQUIRE(math::clamp(3,1,3) == 3);
         REQUIRE(math::clamp(4,1,3) == 3);

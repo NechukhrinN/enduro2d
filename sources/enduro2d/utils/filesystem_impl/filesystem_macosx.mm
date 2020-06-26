@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "filesystem.hpp"
@@ -88,7 +88,7 @@ namespace
     }
 }
 
-namespace e2d { namespace filesystem { namespace impl
+namespace e2d::filesystem::impl
 {
     bool remove_file(str_view path) {
         return 0 == ::unlink(make_utf8(path).c_str())
@@ -155,6 +155,6 @@ namespace e2d { namespace filesystem { namespace impl
                 return false;
         }
     }
-}}}
+}
 
 #endif

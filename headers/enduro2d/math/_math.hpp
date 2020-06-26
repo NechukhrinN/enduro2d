@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -27,9 +27,6 @@ namespace e2d
 
     template < typename T >
     class mat4;
-
-    template < typename T >
-    class quat;
 
     template < typename T >
     class rect;
@@ -94,13 +91,6 @@ namespace e2d
     using m4hi = mat4<i16>;
     using m4hu = mat4<u16>;
 
-    using q4d = quat<f64>;
-    using q4f = quat<f32>;
-    using q4i = quat<i32>;
-    using q4u = quat<u32>;
-    using q4hi = quat<i16>;
-    using q4hu = quat<u16>;
-
     using b2d = rect<f64>;
     using b2f = rect<f32>;
     using b2i = rect<i32>;
@@ -136,58 +126,61 @@ namespace e2d
     using deg = unit<T, deg_tag>;
     template < typename T >
     using rad = unit<T, rad_tag>;
+
+    using degf = deg<f32>;
+    using radf = rad<f32>;
 }
 
-namespace e2d { namespace math
+namespace e2d::math
 {
     //
     // ceil/floor/round/trunc
     //
 
     template < typename T >
-    std::enable_if_t<std::is_integral<T>::value, T>
+    std::enable_if_t<std::is_integral_v<T>, T>
     ceil(T v) noexcept {
         return v;
     }
 
     template < typename T >
-    std::enable_if_t<std::is_integral<T>::value, T>
+    std::enable_if_t<std::is_integral_v<T>, T>
     floor(T v) noexcept {
         return v;
     }
 
     template < typename T >
-    std::enable_if_t<std::is_integral<T>::value, T>
+    std::enable_if_t<std::is_integral_v<T>, T>
     round(T v) noexcept {
         return v;
     }
 
     template < typename T >
-    std::enable_if_t<std::is_integral<T>::value, T>
+    std::enable_if_t<std::is_integral_v<T>, T>
     trunc(T v) noexcept {
         return v;
     }
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, T>
+    std::enable_if_t<std::is_floating_point_v<T>, T>
     ceil(T v) noexcept {
         return std::ceil(v);
     }
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, T>
+    std::enable_if_t<std::is_floating_point_v<T>, T>
     floor(T v) noexcept {
         return std::floor(v);
     }
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, T>
+    std::enable_if_t<std::is_floating_point_v<T>, T>
     round(T v) noexcept {
         return std::round(v);
     }
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, T>
+    std::enable_if_t<std::is_floating_point_v<T>, T>
     trunc(T v) noexcept {
         return std::trunc(v);
     }
@@ -201,9 +194,9 @@ namespace e2d { namespace math
         // i -> i, u -> u, f -> f
         template < typename To, typename From >
         std::enable_if_t<
-            std::is_signed<From>::value == std::is_signed<To>::value &&
-            std::is_integral<From>::value == std::is_integral<To>::value &&
-            std::is_arithmetic<From>::value && std::is_arithmetic<To>::value,
+            std::is_signed_v<From> == std::is_signed_v<To> &&
+            std::is_integral_v<From> == std::is_integral_v<To> &&
+            std::is_arithmetic_v<From> && std::is_arithmetic_v<To>,
             bool>
         check_numeric_cast(From v) noexcept {
             const To l = std::numeric_limits<To>::lowest();
@@ -217,7 +210,7 @@ namespace e2d { namespace math
         // i/u -> f
         template < typename To, typename From >
         std::enable_if_t<
-            std::is_integral<From>::value && std::is_floating_point<To>::value,
+            std::is_integral_v<From> && std::is_floating_point_v<To>,
             bool>
         check_numeric_cast(From v) noexcept {
             E2D_UNUSED(v);
@@ -227,7 +220,7 @@ namespace e2d { namespace math
         // f -> i/u
         template < typename To, typename From >
         std::enable_if_t<
-            std::is_floating_point<From>::value && std::is_integral<To>::value,
+            std::is_floating_point_v<From> && std::is_integral_v<To>,
             bool>
         check_numeric_cast(From v) noexcept {
             const From t = trunc(v);
@@ -239,8 +232,8 @@ namespace e2d { namespace math
         // i -> u
         template < typename To, typename From >
         std::enable_if_t<
-            std::is_signed<From>::value && std::is_unsigned<To>::value &&
-            std::is_integral<From>::value && std::is_integral<To>::value,
+            std::is_signed_v<From> && std::is_unsigned_v<To> &&
+            std::is_integral_v<From> && std::is_integral_v<To>,
             bool>
         check_numeric_cast(From v) noexcept {
             const To m = std::numeric_limits<To>::max();
@@ -250,8 +243,8 @@ namespace e2d { namespace math
         // u -> i
         template < typename To, typename From >
         std::enable_if_t<
-            std::is_unsigned<From>::value && std::is_signed<To>::value &&
-            std::is_integral<From>::value && std::is_integral<To>::value,
+            std::is_unsigned_v<From> && std::is_signed_v<To> &&
+            std::is_integral_v<From> && std::is_integral_v<To>,
             bool>
         check_numeric_cast(From v) noexcept {
             const To m = std::numeric_limits<To>::max();
@@ -261,7 +254,7 @@ namespace e2d { namespace math
 
     template < typename To, typename From >
     std::enable_if_t<
-        std::is_arithmetic<From>::value && std::is_arithmetic<To>::value,
+        std::is_arithmetic_v<From> && std::is_arithmetic_v<To>,
         To>
     numeric_cast(From v) noexcept {
         E2D_ASSERT(impl::check_numeric_cast<To>(v));
@@ -273,19 +266,19 @@ namespace e2d { namespace math
     //
 
     template < typename T >
-    std::enable_if_t<std::is_integral<T>::value, T>
+    std::enable_if_t<std::is_integral_v<T>, T>
     default_precision() noexcept {
         return 0;
     }
 
     template < typename T >
-    std::enable_if_t<std::is_same<T, f32>::value, T>
+    std::enable_if_t<std::is_same_v<T, f32>, T>
     default_precision() noexcept {
         return 0.00001f;
     }
 
     template < typename T >
-    std::enable_if_t<std::is_same<T, f64>::value, T>
+    std::enable_if_t<std::is_same_v<T, f64>, T>
     default_precision() noexcept {
         return 0.0000001;
     }
@@ -296,17 +289,17 @@ namespace e2d { namespace math
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         T>
     set_flags(T flags, U flag_mask) noexcept {
-        return flags | flag_mask;
+        return flags | static_cast<T>(flag_mask);
     }
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         void>
     set_flags_inplace(T& flags, U flag_mask) noexcept {
         flags = set_flags(flags, flag_mask);
@@ -314,17 +307,17 @@ namespace e2d { namespace math
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         T>
     flip_flags(T flags, U flag_mask) noexcept {
-        return flags ^ flag_mask;
+        return flags ^ static_cast<T>(flag_mask);
     }
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         void>
     flip_flags_inplace(T& flags, U flag_mask) noexcept {
         flags = flip_flags(flags, flag_mask);
@@ -332,17 +325,17 @@ namespace e2d { namespace math
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         T>
     clear_flags(T flags, U flag_mask) noexcept {
-        return flags & ~flag_mask;
+        return flags & ~static_cast<T>(flag_mask);
     }
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         void>
     clear_flags_inplace(T& flags, U flag_mask) noexcept {
         flags = clear_flags(flags, flag_mask);
@@ -350,71 +343,71 @@ namespace e2d { namespace math
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         bool>
     check_any_flags(T flags, U flag_mask) noexcept {
-        return !!(flags & flag_mask);
+        return !!(flags & static_cast<T>(flag_mask));
     }
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         bool>
     check_all_flags(T flags, U flag_mask) noexcept {
-        return flag_mask == (flags & flag_mask);
+        return static_cast<T>(flag_mask) == (flags & static_cast<T>(flag_mask));
     }
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         bool>
     check_and_set_any_flags(T& flags, U flag_mask) noexcept {
-        if ( flag_mask == (flags & flag_mask) ) {
+        if ( static_cast<T>(flag_mask) == (flags & static_cast<T>(flag_mask)) ) {
             return false;
         }
-        flags |= flag_mask;
+        flags |= static_cast<T>(flag_mask);
         return true;
     }
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         bool>
     check_and_set_all_flags(T& flags, U flag_mask) noexcept {
-        if ( !!(flags & flag_mask) ) {
+        if ( !!(flags & static_cast<T>(flag_mask)) ) {
             return false;
         }
-        flags |= flag_mask;
+        flags |= static_cast<T>(flag_mask);
         return true;
     }
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         bool>
     check_and_clear_any_flags(T& flags, U flag_mask) noexcept {
-        if ( !(flags & flag_mask) ) {
+        if ( !(flags & static_cast<T>(flag_mask)) ) {
             return false;
         }
-        flags &= ~flag_mask;
+        flags &= ~static_cast<T>(flag_mask);
         return true;
     }
 
     template < typename T, typename U >
     std::enable_if_t<
-        std::is_unsigned<T>::value &&
-        std::is_convertible<U,T>::value,
+        std::is_unsigned_v<T> &&
+        std::is_convertible_v<U,T>,
         bool>
     check_and_clear_all_flags(T& flags, U flag_mask) noexcept {
-        if ( flag_mask != (flags & flag_mask) ) {
+        if ( static_cast<T>(flag_mask) != (flags & static_cast<T>(flag_mask)) ) {
             return false;
         }
-        flags &= ~flag_mask;
+        flags &= ~static_cast<T>(flag_mask);
         return true;
     }
 
@@ -423,19 +416,19 @@ namespace e2d { namespace math
     //
 
     template < typename T >
-    std::enable_if_t<std::is_unsigned<T>::value, bool>
+    std::enable_if_t<std::is_unsigned_v<T>, bool>
     is_power_of_2(T v) noexcept {
         return v && !(v & (v - 1));
     }
 
     template < typename T >
-    std::enable_if_t<std::is_unsigned<T>::value, T>
+    std::enable_if_t<std::is_unsigned_v<T>, T>
     max_power_of_2() noexcept {
         return T(1) << (sizeof(T) * 8 - 1);
     }
 
     template < typename T >
-    std::enable_if_t<std::is_unsigned<T>::value, T>
+    std::enable_if_t<std::is_unsigned_v<T>, T>
     next_power_of_2(T v) noexcept {
         E2D_ASSERT(v <= max_power_of_2<T>());
         if ( v == 0 ) {
@@ -451,29 +444,12 @@ namespace e2d { namespace math
     }
 
     //
-    // is_finite
-    //
-
-    template < typename T >
-    std::enable_if_t<std::is_integral<T>::value, bool>
-    is_finite(T v) noexcept {
-        E2D_UNUSED(v);
-        return true;
-    }
-
-    template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, bool>
-    is_finite(T v) noexcept {
-        return std::isfinite(v);
-    }
-
-    //
     // abs/abs_to_unsigned
     //
 
     template < typename T >
     std::enable_if_t<
-        std::is_integral<T>::value && std::is_signed<T>::value,
+        std::is_integral_v<T> && std::is_signed_v<T>,
         T>
     abs(T v) noexcept {
         E2D_ASSERT(v > std::numeric_limits<T>::lowest());
@@ -482,21 +458,21 @@ namespace e2d { namespace math
 
     template < typename T >
     std::enable_if_t<
-        std::is_integral<T>::value && std::is_unsigned<T>::value,
+        std::is_integral_v<T> && std::is_unsigned_v<T>,
         T>
     abs(T v) noexcept {
         return v;
     }
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, T>
+    std::enable_if_t<std::is_floating_point_v<T>, T>
     abs(T v) noexcept {
         return std::abs(v);
     }
 
     template < typename T >
     std::enable_if_t<
-        std::is_integral<T>::value && std::is_signed<T>::value,
+        std::is_integral_v<T> && std::is_signed_v<T>,
         std::make_unsigned_t<T>>
     abs_to_unsigned(T v) noexcept {
         return v >= 0
@@ -506,7 +482,7 @@ namespace e2d { namespace math
 
     template < typename T >
     std::enable_if_t<
-        std::is_integral<T>::value && std::is_unsigned<T>::value,
+        std::is_integral_v<T> && std::is_unsigned_v<T>,
         T>
     abs_to_unsigned(T v) noexcept {
         return v;
@@ -517,14 +493,14 @@ namespace e2d { namespace math
     //
 
     template < typename T >
-    std::enable_if_t<std::is_integral<T>::value, T>
+    std::enable_if_t<std::is_integral_v<T>, T>
     mod(T x, T y) noexcept {
         E2D_ASSERT(y != T(0));
         return x % y;
     }
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, T>
+    std::enable_if_t<std::is_floating_point_v<T>, T>
     mod(T x, T y) noexcept {
         E2D_ASSERT(y != T(0));
         return std::fmod(x, y);
@@ -536,7 +512,7 @@ namespace e2d { namespace math
 
     template < typename T >
     std::enable_if_t<
-        std::is_integral<T>::value && std::is_signed<T>::value,
+        std::is_integral_v<T> && std::is_signed_v<T>,
         bool>
     sign(T v) noexcept {
         return v < 0;
@@ -544,7 +520,7 @@ namespace e2d { namespace math
 
     template < typename T >
     std::enable_if_t<
-        std::is_integral<T>::value && std::is_unsigned<T>::value,
+        std::is_integral_v<T> && std::is_unsigned_v<T>,
         bool>
     sign(T v) noexcept {
         E2D_UNUSED(v);
@@ -553,7 +529,7 @@ namespace e2d { namespace math
 
     template < typename T >
     std::enable_if_t<
-        std::is_floating_point<T>::value,
+        std::is_floating_point_v<T>,
         bool>
     sign(T v) noexcept {
         return std::signbit(v);
@@ -564,33 +540,79 @@ namespace e2d { namespace math
     //
 
     template < typename T >
-    std::enable_if_t<std::is_floating_point<T>::value, T>
+    std::enable_if_t<std::is_floating_point_v<T>, T>
     sqrt(T v) noexcept {
         return std::sqrt(v);
     }
 
     //
-    // min/max/minmax
+    // min
     //
 
     template < typename T >
-    std::enable_if_t<std::is_arithmetic<T>::value, T>
+    std::enable_if_t<std::is_arithmetic_v<T>, T>
+    min(T v) noexcept {
+        return v;
+    }
+
+    template < typename T >
+    std::enable_if_t<std::is_arithmetic_v<T>, T>
     min(T l, T r) noexcept {
         return l < r ? l : r;
     }
 
+    template < typename T, typename... Ts >
+    std::enable_if_t<std::is_arithmetic_v<T>, T>
+    min(T a, T b, T c, Ts... ts) noexcept {
+        return min(a < b ? a : b, c, ts...);
+    }
+
+    //
+    // max
+    //
+
     template < typename T >
-    std::enable_if_t<std::is_arithmetic<T>::value, T>
+    std::enable_if_t<std::is_arithmetic_v<T>, T>
+    max(T v) noexcept {
+        return v;
+    }
+
+    template < typename T >
+    std::enable_if_t<std::is_arithmetic_v<T>, T>
     max(T l, T r) noexcept {
         return l < r ? r : l;
     }
 
+    template < typename T, typename... Ts >
+    std::enable_if_t<std::is_arithmetic_v<T>, T>
+    max(T a, T b, T c, Ts... ts) noexcept {
+        return max(a < b ? b : a, c, ts...);
+    }
+
+    //
+    // minmax
+    //
+
     template < typename T >
-    std::enable_if_t<std::is_arithmetic<T>::value, std::pair<T,T>>
+    std::enable_if_t<std::is_arithmetic_v<T>, std::pair<T,T>>
+    minmax(T v) noexcept {
+        return std::make_pair(v, v);
+    }
+
+    template < typename T >
+    std::enable_if_t<std::is_arithmetic_v<T>, std::pair<T,T>>
     minmax(T l, T r) noexcept {
         return l < r
             ? std::make_pair(l, r)
             : std::make_pair(r, l);
+    }
+
+    template < typename T, typename... Ts >
+    std::enable_if_t<std::is_arithmetic_v<T>, std::pair<T,T>>
+    minmax(T a, T b, T c, Ts... ts) noexcept {
+        return std::make_pair(
+            min(a, b, c, ts...),
+            max(a, b, c, ts...));
     }
 
     //
@@ -598,14 +620,14 @@ namespace e2d { namespace math
     //
 
     template < typename T >
-    std::enable_if_t<std::is_arithmetic<T>::value, T>
+    std::enable_if_t<std::is_arithmetic_v<T>, T>
     clamp(T v, T vmin, T vmax) noexcept {
         std::tie(vmin, vmax) = minmax(vmin, vmax);
         return min(max(v, vmin), vmax);
     }
 
     template < typename T >
-    std::enable_if_t<std::is_arithmetic<T>::value, T>
+    std::enable_if_t<std::is_arithmetic_v<T>, T>
     saturate(T v) noexcept {
         return clamp(v, T(0), T(1));
     }
@@ -622,7 +644,7 @@ namespace e2d { namespace math
         template < typename T >
         struct make_distance_impl<
             T,
-            std::enable_if_t<std::is_integral<T>::value>>
+            std::enable_if_t<std::is_integral_v<T>>>
         {
             using type = std::make_unsigned_t<T>;
         };
@@ -630,7 +652,7 @@ namespace e2d { namespace math
         template < typename T >
         struct make_distance_impl<
             T,
-            std::enable_if_t<std::is_floating_point<T>::value>>
+            std::enable_if_t<std::is_floating_point_v<T>>>
         {
             using type = T;
         };
@@ -644,7 +666,7 @@ namespace e2d { namespace math
 
     template < typename T >
     std::enable_if_t<
-        std::is_integral<T>::value && std::is_signed<T>::value,
+        std::is_integral_v<T> && std::is_signed_v<T>,
         make_distance_t<T>>
     distance(T l, T r) noexcept {
         std::tie(l, r) = minmax(l, r);
@@ -655,7 +677,7 @@ namespace e2d { namespace math
 
     template < typename T >
     std::enable_if_t<
-        std::is_unsigned<T>::value || std::is_floating_point<T>::value,
+        std::is_unsigned_v<T> || std::is_floating_point_v<T>,
         make_distance_t<T>>
     distance(T l, T r) noexcept {
         std::tie(l, r) = minmax(l, r);
@@ -667,7 +689,7 @@ namespace e2d { namespace math
     //
 
     template < typename T >
-    std::enable_if_t<std::is_arithmetic<T>::value, bool>
+    std::enable_if_t<std::is_arithmetic_v<T>, bool>
     approximately(T l, T r, T precision = default_precision<T>()) noexcept {
         return distance(l, r) <= numeric_cast<make_distance_t<T>>(abs(precision));
     }
@@ -677,7 +699,7 @@ namespace e2d { namespace math
     //
 
     template < typename T >
-    std::enable_if_t<std::is_arithmetic<T>::value, bool>
+    std::enable_if_t<std::is_arithmetic_v<T>, bool>
     is_near_zero(T v, T precision = default_precision<T>()) noexcept {
         return approximately(v, T(0), precision);
     }
@@ -693,7 +715,6 @@ namespace e2d { namespace math
 
     template < typename T >
     T inverse_lerp(T l, T r, T v) noexcept {
-        E2D_ASSERT(!approximately(l, r, T(0)));
         return (v - l) / (r - l);
     }
-}}
+}

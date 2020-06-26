@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "window.hpp"
@@ -12,25 +12,28 @@ namespace e2d
 {
     class window::state final : private e2d::noncopyable {
     public:
-        using listeners_t = std::vector<event_listener_uptr>;
+        using listeners_t = vector<event_listener_uptr>;
     public:
         listeners_t listeners;
         std::recursive_mutex rmutex;
         v2u virtual_size;
         str title;
         bool vsync = false;
+        bool resizable = false;
         bool fullscreen = false;
         bool cursor_hidden = false;
+        cursor_shapes cursor_shape = cursor_shapes::arrow;
         bool should_close = false;
         bool enabled = true;
         bool visible = true;
         bool focused = true;
         bool minimized = false;
     public:
-        state(const v2u& size, str_view title, bool vsync, bool fullscreen)
+        state(const v2u& size, str_view title, bool vsync, bool resizable, bool fullscreen)
         : virtual_size(size)
         , title(make_utf8(title))
         , vsync(vsync)
+        , resizable(resizable)
         , fullscreen(fullscreen) {}
         ~state() noexcept = default;
 
@@ -39,14 +42,14 @@ namespace e2d
             std::lock_guard<std::recursive_mutex> guard(rmutex);
             for ( const event_listener_uptr& listener : listeners ) {
                 if ( listener ) {
-                    stdex::invoke(f, listener.get(), args...);
+                    std::invoke(f, listener.get(), args...);
                 }
             }
         }
     };
 
-    window::window(const v2u& size, str_view title, bool vsync, bool fullscreen)
-    : state_(new state(size, title, vsync, fullscreen)) {}
+    window::window(const v2u& size, str_view title, bool vsync, bool resizable, bool fullscreen)
+    : state_(new state(size, title, vsync, resizable, fullscreen)) {}
     window::~window() noexcept = default;
 
     void window::hide() noexcept {
@@ -127,6 +130,22 @@ namespace e2d
     bool window::is_cursor_hidden() const noexcept {
         std::lock_guard<std::recursive_mutex> guard(state_->rmutex);
         return state_->cursor_hidden;
+    }
+
+    window::cursor_shapes window::cursor_shape() const noexcept {
+        std::lock_guard<std::recursive_mutex> guard(state_->rmutex);
+        return state_->cursor_shape;
+    }
+
+    bool window::set_cursor_shape(cursor_shapes shape) noexcept {
+        std::lock_guard<std::recursive_mutex> guard(state_->rmutex);
+        state_->cursor_shape = shape;
+        return true;
+    }
+
+    v2f window::dpi_scale() const noexcept {
+        std::lock_guard<std::recursive_mutex> guard(state_->rmutex);
+        return v2f::unit();
     }
 
     v2u window::real_size() const noexcept {

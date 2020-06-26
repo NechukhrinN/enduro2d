@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -9,6 +9,7 @@
 #include "_utils.hpp"
 
 #include "buffer.hpp"
+#include "buffer_view.hpp"
 #include "color32.hpp"
 #include "streams.hpp"
 
@@ -77,13 +78,13 @@ namespace e2d
     bool operator!=(const shape& l, const shape& r) noexcept;
 }
 
-namespace e2d { namespace shapes
+namespace e2d::shapes
 {
     bool try_load_shape(
         shape& dst,
-        const buffer& src) noexcept;
+        buffer_view src) noexcept;
 
     bool try_load_shape(
         shape& dst,
         const input_stream_uptr& src) noexcept;
-}}
+}

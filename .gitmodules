@@ -7,9 +7,6 @@
 [submodule "modules/utfcpp"]
 	path = modules/utfcpp
 	url = https://github.com/nemtrif/utfcpp
-[submodule "modules/variant"]
-	path = modules/variant
-	url = https://github.com/mpark/variant
 [submodule "modules/pugixml"]
 	path = modules/pugixml
 	url = https://github.com/zeux/pugixml
@@ -22,9 +19,6 @@
 [submodule "modules/glfw"]
 	path = modules/glfw
 	url = https://github.com/glfw/glfw
-[submodule "toolset/model_converter/modules/assimp"]
-	path = toolset/model_converter/modules/assimp
-	url = https://github.com/assimp/assimp
 [submodule "modules/promise.hpp"]
 	path = modules/promise.hpp
 	url = https://github.com/BlackMATov/promise.hpp
@@ -34,3 +28,33 @@
 [submodule "modules/imgui"]
 	path = modules/imgui
 	url = https://github.com/ocornut/imgui
+[submodule "modules/miniz"]
+	path = modules/miniz
+	url = https://github.com/richgel999/miniz
+[submodule "modules/flat.hpp"]
+	path = modules/flat.hpp
+	url = https://github.com/BlackMATov/flat.hpp
+[submodule "modules/curly.hpp"]
+	path = modules/curly.hpp
+	url = https://github.com/BlackMATov/curly.hpp
+[submodule "modules/spine"]
+	path = modules/spine
+	url = https://github.com/EsotericSoftware/spine-runtimes.git
+[submodule "modules/lua"]
+	path = modules/lua
+	url = https://github.com/lua/lua
+[submodule "modules/sol2"]
+	path = modules/sol2
+	url = https://github.com/ThePhD/sol2
+[submodule "modules/enum.hpp"]
+	path = modules/enum.hpp
+	url = https://github.com/BlackMATov/enum.hpp
+[submodule "modules/pnpoly.h"]
+	path = modules/pnpoly.h
+	url = https://github.com/BlackMATov/pnpoly.h
+[submodule "modules/IconFontCppHeaders"]
+	path = modules/IconFontCppHeaders
+	url = https://github.com/juliettef/IconFontCppHeaders
+[submodule "modules/yoga"]
+	path = modules/yoga
+	url = https://github.com/facebook/yoga

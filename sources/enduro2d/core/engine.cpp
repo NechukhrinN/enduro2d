@@ -1,16 +1,19 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/core/engine.hpp>
 
+#include <enduro2d/core/audio.hpp>
 #include <enduro2d/core/dbgui.hpp>
 #include <enduro2d/core/debug.hpp>
 #include <enduro2d/core/deferrer.hpp>
 #include <enduro2d/core/input.hpp>
+#include <enduro2d/core/network.hpp>
 #include <enduro2d/core/platform.hpp>
+#include <enduro2d/core/profiler.hpp>
 #include <enduro2d/core/render.hpp>
 #include <enduro2d/core/vfs.hpp>
 #include <enduro2d/core/window.hpp>
@@ -20,10 +23,10 @@ namespace
     using namespace e2d;
 
     template < typename Module, typename... Args >
-    void safe_module_initialize(Args&&... args) {
-        if ( !modules::is_initialized<Module>() ) {
-            modules::initialize<Module>(std::forward<Args>(args)...);
-        }
+    Module& safe_module_initialize(Args&&... args) {
+        return modules::is_initialized<Module>()
+            ? modules::instance<Module>()
+            : modules::initialize<Module>(std::forward<Args>(args)...);
     }
 
     void safe_register_predef_path(
@@ -44,26 +47,29 @@ namespace e2d
     // application
     //
 
-    bool application::initialize() {
+    bool engine::application::initialize() {
         return true;
     }
 
-    void application::shutdown() noexcept {
+    void engine::application::shutdown() noexcept {
     }
 
-    bool application::frame_tick() {
+    bool engine::application::frame_tick() {
         return true;
     }
 
-    void application::frame_render() {
+    void engine::application::frame_render() {
+    }
+
+    void engine::application::frame_finalize() {
     }
 
     //
     // engine::debug_parameters
     //
 
-    engine::debug_parameters& engine::debug_parameters::log_filename(str_view value) {
-        log_filename_ = value;
+    engine::debug_parameters& engine::debug_parameters::log_filename(str value) noexcept {
+        log_filename_ = std::move(value);
         return *this;
     }
 
@@ -115,8 +121,8 @@ namespace e2d
     // engine::window_parameters
     //
 
-    engine::window_parameters& engine::window_parameters::caption(str_view value) {
-        caption_ = value;
+    engine::window_parameters& engine::window_parameters::caption(str value) noexcept {
+        caption_ = std::move(value);
         return *this;
     }
 
@@ -127,6 +133,11 @@ namespace e2d
 
     engine::window_parameters& engine::window_parameters::vsync(bool value) noexcept {
         vsync_ = value;
+        return *this;
+    }
+
+    engine::window_parameters& engine::window_parameters::resizable(bool value) noexcept {
+        resizable_ = value;
         return *this;
     }
 
@@ -147,6 +158,10 @@ namespace e2d
         return vsync_;
     }
 
+    bool engine::window_parameters::resizable() const noexcept {
+        return resizable_;
+    }
+
     bool engine::window_parameters::fullscreen() const noexcept {
         return fullscreen_;
     }
@@ -155,17 +170,27 @@ namespace e2d
     // engine::parameters
     //
 
-    engine::parameters::parameters(str_view game_name, str_view company_name)
-    : game_name_(game_name)
-    , company_name_(company_name) {}
+    engine::parameters::parameters(str game_name, str company_name) noexcept
+    : game_name_(std::move(game_name))
+    , company_name_(std::move(company_name)) {}
 
-    engine::parameters& engine::parameters::game_name(str_view value) {
-        game_name_ = value;
+    engine::parameters& engine::parameters::game_name(str value) noexcept {
+        game_name_ = std::move(value);
         return *this;
     }
 
-    engine::parameters& engine::parameters::company_name(str_view value) {
-        company_name_ = value;
+    engine::parameters& engine::parameters::company_name(str value) noexcept {
+        company_name_ = std::move(value);
+        return *this;
+    }
+
+    engine::parameters& engine::parameters::without_audio(bool value) {
+        without_audio_ = value;
+        return *this;
+    }
+
+    engine::parameters& engine::parameters::without_network(bool value) {
+        without_network_ = value;
         return *this;
     }
 
@@ -174,18 +199,18 @@ namespace e2d
         return *this;
     }
 
-    engine::parameters& engine::parameters::debug_params(const debug_parameters& value) {
-        debug_params_ = value;
+    engine::parameters& engine::parameters::debug_params(debug_parameters value) noexcept {
+        debug_params_ = std::move(value);
         return *this;
     }
 
-    engine::parameters& engine::parameters::window_params(const window_parameters& value) {
-        window_params_ = value;
+    engine::parameters& engine::parameters::window_params(window_parameters value) noexcept {
+        window_params_ = std::move(value);
         return *this;
     }
 
-    engine::parameters& engine::parameters::timer_params(const timer_parameters& value) {
-        timer_params_ = value;
+    engine::parameters& engine::parameters::timer_params(timer_parameters value) noexcept {
+        timer_params_ = std::move(value);
         return *this;
     }
 
@@ -195,6 +220,14 @@ namespace e2d
 
     str& engine::parameters::company_name() noexcept {
         return company_name_;
+    }
+
+    bool& engine::parameters::without_audio() noexcept {
+        return without_audio_;
+    }
+
+    bool& engine::parameters::without_network() noexcept {
+        return without_network_;
     }
 
     bool& engine::parameters::without_graphics() noexcept {
@@ -221,7 +254,15 @@ namespace e2d
         return company_name_;
     }
 
-    const bool& engine::parameters::without_graphics() const noexcept {
+    bool engine::parameters::without_audio() const noexcept {
+        return without_audio_;
+    }
+
+    bool engine::parameters::without_network() const noexcept {
+        return without_network_;
+    }
+
+    bool engine::parameters::without_graphics() const noexcept {
         return without_graphics_;
     }
 
@@ -279,6 +320,8 @@ namespace e2d
         }
     public:
         void calculate_end_frame_timers() noexcept {
+            E2D_PROFILER_SCOPE("engine.wait_for_target_fps");
+
             const auto second_us = time::second_us<u64>();
 
             const auto minimal_delta_time_us =
@@ -342,6 +385,11 @@ namespace e2d
 
         safe_module_initialize<deferrer>();
 
+        // setup profiler
+
+        safe_module_initialize<profiler>(
+            the<deferrer>());
+
         // setup debug
 
         safe_module_initialize<debug>();
@@ -376,9 +424,30 @@ namespace e2d
 
         safe_module_initialize<input>();
 
+        // setup audio
+
+        const bool without_audio =
+            params.without_audio() ||
+            !!std::getenv("E2D_WITHOUT_AUDIO");
+
+        if ( !without_audio ) {
+            safe_module_initialize<audio>(
+                the<debug>());
+        }
+
+        // setup network
+
+        if ( !params.without_network() ) {
+            safe_module_initialize<network>();
+        }
+
         // setup graphics
 
-        if ( !params.without_graphics() )
+        const bool without_graphics =
+            params.without_graphics() ||
+            !!std::getenv("E2D_WITHOUT_GRAPHICS");
+
+        if ( !without_graphics )
         {
             // setup window
 
@@ -386,6 +455,7 @@ namespace e2d
                 params.window_params().size(),
                 params.window_params().caption(),
                 params.window_params().vsync(),
+                params.window_params().resizable(),
                 params.window_params().fullscreen());
 
             the<window>().register_event_listener<window_input_source>(the<input>());
@@ -407,14 +477,18 @@ namespace e2d
     }
 
     engine::~engine() noexcept {
-        modules::shutdown<dbgui>();
-        modules::shutdown<render>();
-        modules::shutdown<window>();
-        modules::shutdown<input>();
-        modules::shutdown<vfs>();
-        modules::shutdown<debug>();
-        modules::shutdown<deferrer>();
-        modules::shutdown<platform>();
+        modules::shutdown<
+            dbgui,
+            render,
+            window,
+            network,
+            audio,
+            input,
+            vfs,
+            debug,
+            profiler,
+            deferrer,
+            platform>();
     }
 
     bool engine::start(application_uptr app) {
@@ -428,7 +502,7 @@ namespace e2d
         while ( true ) {
             try {
                 the<dbgui>().frame_tick();
-                the<deferrer>().scheduler().process_all_tasks();
+                the<deferrer>().frame_tick();
 
                 if ( !app->frame_tick() ) {
                     break;
@@ -440,13 +514,17 @@ namespace e2d
                     the<window>().swap_buffers();
                 }
 
+                app->frame_finalize();
                 state_->calculate_end_frame_timers();
             } catch ( ... ) {
                 app->shutdown();
                 throw;
             }
+
             the<input>().frame_tick();
             window::poll_events();
+
+            E2D_PROFILER_GLOBAL_EVENT("engine.end_of_frame");
         }
 
         app->shutdown();

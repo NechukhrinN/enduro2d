@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_utils.hpp"
@@ -100,6 +100,88 @@ TEST_CASE("strings") {
         REQUIRE(make_utf32(str32_view(null_utf32, 0)) == make_utf32(U""));
     }
     {
+        using strings::try_parse;
+
+        {
+            i8 v{111};
+            REQUIRE((try_parse("42", v) && v == 42));
+            REQUIRE((try_parse("+42", v) && v == 42));
+            REQUIRE((try_parse("127", v) && v == 127));
+            REQUIRE((try_parse("0", v) && v == 0));
+            REQUIRE((try_parse("0xF", v) && v == 15));
+            REQUIRE((try_parse("052", v) && v == 42));
+            REQUIRE((try_parse("-052", v) && v == -42));
+            REQUIRE((try_parse("-128", v) && v == -128));
+
+            u8 uv{111};
+            REQUIRE((try_parse("42", uv) && uv == 42));
+            REQUIRE((try_parse("+42", uv) && uv == 42));
+            REQUIRE((try_parse("255", uv) && uv == 255));
+            REQUIRE((try_parse("0xFF", uv) && uv == 255));
+            REQUIRE((try_parse("052", uv) && uv == 42));
+            REQUIRE((try_parse("0", uv) && uv == 0));
+        }
+        {
+            i8 v{111};
+            REQUIRE((!try_parse(str_view(), v) && v == 111));
+            REQUIRE((!try_parse("", v) && v == 111));
+            REQUIRE((!try_parse("  \t", v) && v == 111));
+            REQUIRE((!try_parse("42hello", v) && v == 111));
+            REQUIRE((!try_parse("world42", v) && v == 111));
+            REQUIRE((!try_parse("42 ", v) && v == 111));
+            REQUIRE((!try_parse("-129", v) && v == 111));
+            REQUIRE((!try_parse("128", v) && v == 111));
+            REQUIRE((!try_parse("4.2", v) && v == 111));
+
+            u8 uv{111};
+            REQUIRE((!try_parse(str_view(), uv) && uv == 111));
+            REQUIRE((!try_parse("", uv) && uv == 111));
+            REQUIRE((!try_parse("  \t", uv) && uv == 111));
+            REQUIRE((!try_parse("42hello", uv) && uv == 111));
+            REQUIRE((!try_parse("world42", uv) && uv == 111));
+            REQUIRE((!try_parse("42 ", uv) && uv == 111));
+            REQUIRE((!try_parse("-1", uv) && uv == 111));
+            REQUIRE((!try_parse("256", uv) && uv == 111));
+            REQUIRE((!try_parse("4.2", uv) && uv == 111));
+        }
+        {
+            f32 v32{11.22f};
+            REQUIRE((try_parse("4.23E5", v32) && math::approximately(v32, 4.23e5f)));
+            REQUIRE((try_parse("4.23E-5", v32) && math::approximately(v32, 4.23e-5f)));
+            REQUIRE((try_parse("4.23E+5", v32) && math::approximately(v32, 4.23e+5f)));
+            REQUIRE((try_parse("42", v32) && math::approximately(v32, 42.f)));
+            REQUIRE((try_parse("+42", v32) && math::approximately(v32, 42.f)));
+            REQUIRE((try_parse("-2.43", v32) && math::approximately(v32, -2.43f)));
+            REQUIRE((try_parse("-24", v32) && math::approximately(v32, -24.f)));
+
+            f64 v64{11.22f};
+            REQUIRE((try_parse("4.23E5", v64) && math::approximately(v64, 4.23e5)));
+            REQUIRE((try_parse("4.23E-5", v64) && math::approximately(v64, 4.23e-5)));
+            REQUIRE((try_parse("4.23E+5", v64) && math::approximately(v64, 4.23e+5)));
+            REQUIRE((try_parse("42", v64) && math::approximately(v64, 42.)));
+            REQUIRE((try_parse("+42", v64) && math::approximately(v64, 42.)));
+            REQUIRE((try_parse("-2.43", v64) && math::approximately(v64, -2.43)));
+            REQUIRE((try_parse("-24", v64) && math::approximately(v64, -24.)));
+        }
+        {
+            f32 v32{11.22f};
+            REQUIRE((!try_parse("", v32) && math::approximately(v32, 11.22f)));
+            REQUIRE((!try_parse("  \t", v32) && math::approximately(v32, 11.22f)));
+            REQUIRE((!try_parse("1.0E100", v32) && math::approximately(v32, 11.22f)));
+            REQUIRE((!try_parse("1..4", v32) && math::approximately(v32, 11.22f)));
+            REQUIRE((!try_parse("..14", v32) && math::approximately(v32, 11.22f)));
+            REQUIRE((!try_parse("14..", v32) && math::approximately(v32, 11.22f)));
+
+            f64 v64{11.22};
+            REQUIRE((!try_parse("", v64) && math::approximately(v64, 11.22)));
+            REQUIRE((!try_parse("  \t", v64) && math::approximately(v64, 11.22)));
+            REQUIRE((!try_parse("1.0E400", v64) && math::approximately(v64, 11.22)));
+            REQUIRE((!try_parse("1..4", v64) && math::approximately(v64, 11.22)));
+            REQUIRE((!try_parse("..14", v64) && math::approximately(v64, 11.22)));
+            REQUIRE((!try_parse("14..", v64) && math::approximately(v64, 11.22)));
+        }
+    }
+    {
         using strings::wildcard_match;
 
         char invalid_utf[] = "\xe6\x97\xa5\xd1\x88\xfa";
@@ -130,9 +212,9 @@ TEST_CASE("strings") {
 
         REQUIRE(wildcard_match(
             // 你好你好你好你好世界世界世界世界世界世界世界世界彡ಠ
-            mark_string("\u4F60\u597D\u4F60\u597D\u4F60\u597D\u4F60\u597D\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u5F61\u0CA0"),
+            mark_string(u8"\u4F60\u597D\u4F60\u597D\u4F60\u597D\u4F60\u597D\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u4E16\u754C\u5F61\u0CA0"),
             // 你好你好你好你好*世界世界彡*ಠ
-            mark_pattern("\u4F60\u597D\u4F60\u597D\u4F60\u597D\u4F60\u597D*\u4E16\u754C\u4E16\u754C\u5F61*\u0CA0")) == true);
+            mark_pattern(u8"\u4F60\u597D\u4F60\u597D\u4F60\u597D\u4F60\u597D*\u4E16\u754C\u4E16\u754C\u5F61*\u0CA0")) == true);
 
         REQUIRE(wildcard_match("", "") == true);
         REQUIRE(wildcard_match("a", "") == false);
@@ -255,6 +337,25 @@ TEST_CASE("strings") {
         REQUIRE(wildcard_match(mark_string("*abc*"), mark_pattern("***a*b*c***")) == true);
     }
     {
+        REQUIRE(strings::starts_with("", ""));
+        REQUIRE(strings::starts_with("hello_world", ""));
+        REQUIRE(strings::starts_with("hello_world", "hello"));
+        REQUIRE(strings::starts_with("hello_world", "hello_world"));
+        REQUIRE_FALSE(strings::starts_with("", "a"));
+        REQUIRE_FALSE(strings::starts_with("hello_world", "world"));
+        REQUIRE_FALSE(strings::starts_with("hello_world", "hello_world_42"));
+        REQUIRE_FALSE(strings::starts_with("hello_world", "42_hello_world"));
+
+        REQUIRE(strings::ends_with("", ""));
+        REQUIRE(strings::ends_with("hello_world", ""));
+        REQUIRE(strings::ends_with("hello_world", "world"));
+        REQUIRE(strings::ends_with("hello_world", "hello_world"));
+        REQUIRE_FALSE(strings::ends_with("", "a"));
+        REQUIRE_FALSE(strings::ends_with("hello_world", "hello"));
+        REQUIRE_FALSE(strings::ends_with("hello_world", "hello_world_42"));
+        REQUIRE_FALSE(strings::ends_with("hello_world", "42_hello_world"));
+    }
+    {
         char buf[6];
         REQUIRE_THROWS_AS(strings::format(buf, 0, "hello"), strings::bad_format_buffer);
         REQUIRE_THROWS_AS(strings::format(nullptr, sizeof(buf), "hello"), strings::bad_format_buffer);
@@ -296,10 +397,10 @@ TEST_CASE("strings") {
         REQUIRE_FALSE(strings::rformat_nothrow(s, "%"));
         char buf[5] = {0};
         std::size_t length = 0;
-        REQUIRE(strings::format_nothrow(buf, E2D_COUNTOF(buf), &length, "%0", "hell"));
+        REQUIRE(strings::format_nothrow(buf, std::size(buf), &length, "%0", "hell"));
         REQUIRE(length == 4);
         REQUIRE(str(buf) == str("hell"));
-        REQUIRE_FALSE(strings::format_nothrow(buf, E2D_COUNTOF(buf), &length, "%0", "hello"));
+        REQUIRE_FALSE(strings::format_nothrow(buf, std::size(buf), &length, "%0", "hello"));
     }
     {
         REQUIRE(strings::rformat(str_view("%0"), 42) == "42");
@@ -487,14 +588,14 @@ TEST_CASE("strings") {
             }
             {
                 char buf[1];
-                strings::format(buf, E2D_COUNTOF(buf), "%0", "\0");
+                strings::format(buf, std::size(buf), "%0", "\0");
                 REQUIRE(str(buf) == str(""));
             }
             {
                 char buf[2];
-                REQUIRE_THROWS_AS(strings::format(buf, E2D_COUNTOF(buf), "%0%1", 1, 20), strings::bad_format_buffer);
+                REQUIRE_THROWS_AS(strings::format(buf, std::size(buf), "%0%1", 1, 20), strings::bad_format_buffer);
                 REQUIRE(str(buf) == str("1"));
-                REQUIRE_THROWS_AS(strings::format(buf, E2D_COUNTOF(buf), "%0%1", 20, 1), strings::bad_format_buffer);
+                REQUIRE_THROWS_AS(strings::format(buf, std::size(buf), "%0%1", 20, 1), strings::bad_format_buffer);
                 REQUIRE(str(buf) == str("2"));
             }
         }

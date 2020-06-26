@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -11,13 +11,24 @@
 #if defined(E2D_RENDER_MODE)
 #if E2D_RENDER_MODE == E2D_RENDER_MODE_OPENGL || E2D_RENDER_MODE == E2D_RENDER_MODE_OPENGLES
 
-#define GLEW_STATIC
-#include <GL/glew.h>
+#if E2D_RENDER_MODE == E2D_RENDER_MODE_OPENGL
+#  include <GL/glew.h>
+#elif E2D_RENDER_MODE == E2D_RENDER_MODE_OPENGLES
+#  include <GLES2/gl2.h>
+#  include <GLES2/gl2ext.h>
+
+// GL_OES_depth24
+#  define GL_DEPTH_COMPONENT24 GL_DEPTH_COMPONENT24_OES
+
+// GL_OES_packed_depth_stencil
+#  define GL_DEPTH_STENCIL GL_DEPTH_STENCIL_OES
+#  define GL_UNSIGNED_INT_24_8 GL_UNSIGNED_INT_24_8_OES
+#  define GL_DEPTH24_STENCIL8 GL_DEPTH24_STENCIL8_OES
+#endif
 
 #if defined(E2D_BUILD_MODE) && E2D_BUILD_MODE == E2D_BUILD_MODE_DEBUG
 #   define GL_FLUSH_ERRORS(dbg)\
         for ( GLenum err = glGetError(); err != GL_NO_ERROR; err = glGetError() ) {\
-            E2D_ASSERT_MSG(false, "RENDER: GL_FLUSH_ERRORS()");\
             (dbg).log(err == GL_OUT_OF_MEMORY\
                 ? debug::level::fatal\
                 : debug::level::error,\
@@ -26,13 +37,13 @@
                 "--> Line: %1\n"\
                 "--> Code: %2",\
                 __FILE__, __LINE__, e2d::opengl::gl_error_code_to_cstr(err));\
+            E2D_ASSERT_MSG(false, "RENDER: GL_FLUSH_ERRORS()");\
             if ( err == GL_OUT_OF_MEMORY ) std::terminate();\
         }
 #   define GL_CHECK_CODE(dbg, code)\
         GL_FLUSH_ERRORS(dbg);\
         code;\
         for ( GLenum err = glGetError(); err != GL_NO_ERROR; err = glGetError() ) {\
-            E2D_ASSERT_MSG(false, #code);\
             (dbg).log(err == GL_OUT_OF_MEMORY\
                 ? debug::level::fatal\
                 : debug::level::error,\
@@ -41,6 +52,7 @@
                 "--> Line: %2\n"\
                 "--> Code: %3",\
                 #code, __FILE__, __LINE__, e2d::opengl::gl_error_code_to_cstr(err));\
+            E2D_ASSERT_MSG(false, #code);\
             if ( err == GL_OUT_OF_MEMORY ) std::terminate();\
         }
 #else
@@ -48,7 +60,7 @@
 #   define GL_CHECK_CODE(dbg, code) E2D_UNUSED(dbg); code;
 #endif
 
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
     class gl_buffer_id final : private noncopyable {
         gl_buffer_id(debug& debug, GLuint id, GLenum target, bool owned) noexcept;
@@ -192,51 +204,48 @@ namespace e2d { namespace opengl
     bool operator!=(const gl_texture_id& l, const gl_texture_id& r) noexcept;
     bool operator!=(const gl_framebuffer_id& l, const gl_framebuffer_id& r) noexcept;
     bool operator!=(const gl_renderbuffer_id& l, const gl_renderbuffer_id& r) noexcept;
-}}
+}
 
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
-    enum class uniform_type : u8 {
-        signed_integer,
-        floating_point,
+    ENUM_HPP_CLASS_DECL(uniform_type, u8,
+        (signed_integer)
+        (floating_point)
 
-        v2i,
-        v3i,
-        v4i,
+        (v2i)
+        (v3i)
+        (v4i)
 
-        v2f,
-        v3f,
-        v4f,
+        (v2f)
+        (v3f)
+        (v4f)
 
-        m2f,
-        m3f,
-        m4f,
+        (m2f)
+        (m3f)
+        (m4f)
 
-        sampler_2d,
-        sampler_cube,
+        (sampler_2d)
+        (sampler_cube)
 
-        unknown
-    };
+        (unknown))
+    ENUM_HPP_REGISTER_TRAITS(uniform_type)
 
-    enum class attribute_type : u8 {
-        floating_point,
+    ENUM_HPP_CLASS_DECL(attribute_type, u8,
+        (floating_point)
 
-        v2f,
-        v3f,
-        v4f,
+        (v2f)
+        (v3f)
+        (v4f)
 
-        m2f,
-        m3f,
-        m4f,
+        (m2f)
+        (m3f)
+        (m4f)
 
-        unknown
-    };
+        (unknown))
+    ENUM_HPP_REGISTER_TRAITS(attribute_type)
+}
 
-    const char* uniform_type_to_cstr(uniform_type ut) noexcept;
-    const char* attribute_type_to_cstr(attribute_type at) noexcept;
-}}
-
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
     GLenum convert_image_data_format_to_external_format(image_data_format f) noexcept;
     GLenum convert_image_data_format_to_external_data_type(image_data_format f) noexcept;
@@ -275,16 +284,25 @@ namespace e2d { namespace opengl
     const char* gl_error_code_to_cstr(GLenum e) noexcept;
     const char* gl_framebuffer_status_to_cstr(GLenum s) noexcept;
     GLenum gl_target_to_get_target(GLenum t) noexcept;
-}}
+}
 
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
     void gl_trace_info(debug& debug) noexcept;
     void gl_trace_limits(debug& debug) noexcept;
+    bool gl_has_extension(debug& debug, str_view name) noexcept;
     void gl_fill_device_caps(debug& debug, render::device_caps& caps) noexcept;
 
-    gl_shader_id gl_compile_shader(debug& debug, const str& source, GLenum type) noexcept;
-    gl_program_id gl_link_program(debug& debug, gl_shader_id vs, gl_shader_id fs) noexcept;
+    gl_shader_id gl_compile_shader(
+        debug& debug,
+        str_view header,
+        str_view source,
+        GLenum type) noexcept;
+
+    gl_program_id gl_link_program(
+        debug& debug,
+        gl_shader_id vs,
+        gl_shader_id fs) noexcept;
 
     bool gl_check_framebuffer(
         debug& debug,
@@ -307,9 +325,9 @@ namespace e2d { namespace opengl
         debug& debug,
         const v2u& size,
         GLenum format);
-}}
+}
 
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
     struct uniform_info {
         str_hash name;
@@ -354,9 +372,9 @@ namespace e2d { namespace opengl
         debug& debug,
         GLuint program,
         vector<attribute_info>& attributes);
-}}
+}
 
-namespace e2d { namespace opengl
+namespace e2d::opengl
 {
     //
     // with_gl_use_program
@@ -370,7 +388,7 @@ namespace e2d { namespace opengl
         GL_CHECK_CODE(debug, glUseProgram(
             program));
         try {
-            stdex::invoke(std::forward<F>(f), std::forward<Args>(args)...);
+            std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
         } catch (...) {
             GL_CHECK_CODE(debug, glUseProgram(
                 math::numeric_cast<GLuint>(prev_program)));
@@ -397,7 +415,7 @@ namespace e2d { namespace opengl
         GL_CHECK_CODE(debug, glBindBuffer(
             target, buffer));
         try {
-            stdex::invoke(std::forward<F>(f), std::forward<Args>(args)...);
+            std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
         } catch (...) {
             GL_CHECK_CODE(debug, glBindBuffer(
                 target, math::numeric_cast<GLuint>(prev_buffer)));
@@ -424,7 +442,7 @@ namespace e2d { namespace opengl
         GL_CHECK_CODE(debug, glBindTexture(
             target, texture));
         try {
-            stdex::invoke(std::forward<F>(f), std::forward<Args>(args)...);
+            std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
         } catch (...) {
             GL_CHECK_CODE(debug, glBindTexture(
                 target, math::numeric_cast<GLuint>(prev_texture)));
@@ -451,7 +469,7 @@ namespace e2d { namespace opengl
         GL_CHECK_CODE(debug, glBindFramebuffer(
             target, framebuffer));
         try {
-            stdex::invoke(std::forward<F>(f), std::forward<Args>(args)...);
+            std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
         } catch (...) {
             GL_CHECK_CODE(debug, glBindFramebuffer(
                 target, math::numeric_cast<GLuint>(prev_framebuffer)));
@@ -478,7 +496,7 @@ namespace e2d { namespace opengl
         GL_CHECK_CODE(debug, glBindRenderbuffer(
             target, renderbuffer));
         try {
-            stdex::invoke(std::forward<F>(f), std::forward<Args>(args)...);
+            std::invoke(std::forward<F>(f), std::forward<Args>(args)...);
         } catch (...) {
             GL_CHECK_CODE(debug, glBindRenderbuffer(
                 target, math::numeric_cast<GLuint>(prev_renderbuffer)));
@@ -492,7 +510,7 @@ namespace e2d { namespace opengl
     void with_gl_bind_renderbuffer(debug& debug, const gl_renderbuffer_id& renderbuffer, F&& f, Args&&... args) {
         with_gl_bind_renderbuffer(debug, renderbuffer.target(), *renderbuffer, std::forward<F>(f), std::forward<Args>(args)...);
     }
-}}
+}
 
 #endif
 #endif

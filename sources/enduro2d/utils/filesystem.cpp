@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "filesystem_impl/files.hpp"
@@ -18,7 +18,7 @@ namespace e2d
     }
 }
 
-namespace e2d { namespace filesystem
+namespace e2d::filesystem
 {
     bool remove(str_view path) {
         return remove_file(path)
@@ -105,12 +105,12 @@ namespace e2d { namespace filesystem
             dst, make_read_file(path));
     }
 
-    bool try_write_all(const str& src, str_view path, bool append) noexcept {
+    bool try_write_all(str_view src, str_view path, bool append) noexcept {
         return streams::try_write_tail(
             src, make_write_file(path, append));
     }
 
-    bool try_write_all(const buffer& src, str_view path, bool append) noexcept {
+    bool try_write_all(buffer_view src, str_view path, bool append) noexcept {
         return streams::try_write_tail(
             src, make_write_file(path, append));
     }
@@ -118,4 +118,4 @@ namespace e2d { namespace filesystem
     bool extract_predef_path(str& dst, predef_path path_type) {
         return impl::extract_predef_path(dst, path_type);
     }
-}}
+}

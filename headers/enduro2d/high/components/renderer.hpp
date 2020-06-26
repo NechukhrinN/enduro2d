@@ -1,12 +1,12 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
 
-#include "../_high.hpp"
+#include "_components.hpp"
 
 #include "../assets/material_asset.hpp"
 
@@ -16,22 +16,31 @@ namespace e2d
     public:
         renderer() = default;
 
-        renderer& enabled(bool value) noexcept;
-        bool enabled() const noexcept;
+        renderer& transform(const t3f& transform) noexcept;
+        [[nodiscard]] const t3f& transform() const noexcept;
+
+        renderer& translation(const v3f& translation) noexcept;
+        [[nodiscard]] const v3f& translation() const noexcept;
+
+        renderer& rotation(const v3f& rotation) noexcept;
+        [[nodiscard]] const v3f& rotation() const noexcept;
+
+        renderer& scale(const v3f& scale) noexcept;
+        [[nodiscard]] const v3f& scale() const noexcept;
 
         renderer& properties(render::property_block&& value) noexcept;
         renderer& properties(const render::property_block& value);
 
-        render::property_block& properties() noexcept;
-        const render::property_block& properties() const noexcept;
+        [[nodiscard]] render::property_block& properties() noexcept;
+        [[nodiscard]] const render::property_block& properties() const noexcept;
 
         renderer& materials(vector<material_asset::ptr>&& value) noexcept;
         renderer& materials(const vector<material_asset::ptr>& value);
 
-        vector<material_asset::ptr>& materials() noexcept;
-        const vector<material_asset::ptr>& materials() const noexcept;
+        [[nodiscard]] vector<material_asset::ptr>& materials() noexcept;
+        [[nodiscard]] const vector<material_asset::ptr>& materials() const noexcept;
     private:
-        bool enabled_ = true;
+        t3f transform_ = t3f::identity();
         render::property_block properties_;
         vector<material_asset::ptr> materials_;
     };
@@ -39,13 +48,68 @@ namespace e2d
 
 namespace e2d
 {
-    inline renderer& renderer::enabled(bool value) noexcept {
-        enabled_ = value;
+    template <>
+    class factory_loader<renderer> final : factory_loader<> {
+    public:
+        static const char* schema_source;
+
+        bool operator()(
+            renderer& component,
+            const fill_context& ctx) const;
+
+        bool operator()(
+            asset_dependencies& dependencies,
+            const collect_context& ctx) const;
+    };
+}
+
+namespace e2d
+{
+    template <>
+    class component_inspector<renderer> final : component_inspector<> {
+    public:
+        static const char* title;
+
+        void operator()(gcomponent<renderer>& c) const;
+    };
+}
+
+namespace e2d
+{
+    inline renderer& renderer::transform(const t3f& transform) noexcept {
+        transform_ = transform;
         return *this;
     }
 
-    inline bool renderer::enabled() const noexcept {
-        return enabled_;
+    inline const t3f& renderer::transform() const noexcept {
+        return transform_;
+    }
+
+    inline renderer& renderer::translation(const v3f& translation) noexcept {
+        transform_.translation = translation;
+        return *this;
+    }
+
+    inline const v3f& renderer::translation() const noexcept {
+        return transform_.translation;
+    }
+
+    inline renderer& renderer::rotation(const v3f& rotation) noexcept {
+        transform_.rotation = rotation;
+        return *this;
+    }
+
+    inline const v3f& renderer::rotation() const noexcept {
+        return transform_.rotation;
+    }
+
+    inline renderer& renderer::scale(const v3f& scale) noexcept {
+        transform_.scale = scale;
+        return *this;
+    }
+
+    inline const v3f& renderer::scale() const noexcept {
+        return transform_.scale;
     }
 
     inline renderer& renderer::properties(render::property_block&& value) noexcept {

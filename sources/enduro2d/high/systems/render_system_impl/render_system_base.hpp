@@ -1,22 +1,15 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
 
 #include <enduro2d/high/_high.hpp>
 
-namespace e2d { namespace render_system_impl
+namespace e2d::render_system_impl
 {
-    struct index_u8 {
-        using type = u8;
-        static index_declaration decl() noexcept {
-            return index_declaration::index_type::unsigned_byte;
-        }
-    };
-
     struct index_u16 {
         using type = u16;
         static index_declaration decl() noexcept {
@@ -40,8 +33,8 @@ namespace e2d { namespace render_system_impl
         static vertex_declaration decl() noexcept {
             return vertex_declaration()
                 .add_attribute<v3f>("a_vertex")
-                .add_attribute<v2f>("a_st")
-                .add_attribute<color32>("a_tint").normalized();
+                .add_attribute<v2f>("a_st0")
+                .add_attribute<color32>("a_color0").normalized();
         }
     };
-}}
+}

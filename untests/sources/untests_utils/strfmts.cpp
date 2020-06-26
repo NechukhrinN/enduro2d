@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_utils.hpp"
@@ -157,7 +157,6 @@ TEST_CASE("strfmts") {
     }
     {
         REQUIRE(strings::rformat("%0", make_rect(1,2,3,4)) == "(1,2,3,4)");
-        REQUIRE(strings::rformat("%0", make_quat(1,2,3,4)) == "(1,2,3,4)");
         REQUIRE(strings::rformat("%0", make_aabb(1,2,3,4,5,6)) == "(1,2,3,4,5,6)");
 
         REQUIRE(strings::rformat(
@@ -165,9 +164,13 @@ TEST_CASE("strfmts") {
             strings::make_format_arg(make_rect(1.f,2.f,3.f,4.f), u8(5), u8(2))) == "( 1.00, 2.00, 3.00, 4.00)");
         REQUIRE(strings::rformat(
             "%0",
-            strings::make_format_arg(make_quat(1.f,2.f,3.f,4.f), u8(5), u8(2))) == "( 1.00, 2.00, 3.00, 4.00)");
+            strings::make_format_arg(make_aabb(1.f,2.f,3.f,4.f,5.f,6.f), u8(5), u8(2))) == "( 1.00, 2.00, 3.00, 4.00, 5.00, 6.00)");
+    }
+    {
+        REQUIRE(strings::rformat("%0", image_file_format::tga) == "tga");
         REQUIRE(strings::rformat(
             "%0",
-            strings::make_format_arg(make_aabb(1.f,2.f,3.f,4.f,5.f,6.f), u8(5), u8(2))) == "( 1.00, 2.00, 3.00, 4.00, 5.00, 6.00)");
+            strings::make_format_arg(image_file_format::dds, u8(5))) ==
+            "  dds");
     }
 }

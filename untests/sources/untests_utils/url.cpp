@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_utils.hpp"
@@ -19,24 +19,28 @@ TEST_CASE("url") {
         REQUIRE(u.empty());
         REQUIRE(u.scheme().empty());
         REQUIRE(u.path().empty());
+        REQUIRE(u.schemepath() == "://");
     }
     {
         url u("://file");
         REQUIRE(!u.empty());
         REQUIRE(u.scheme().empty());
         REQUIRE(u.path() == "file");
+        REQUIRE(u.schemepath() == "://file");
     }
     {
         url u("file://");
         REQUIRE(u.empty());
         REQUIRE(u.scheme() == "file");
         REQUIRE(u.path().empty());
+        REQUIRE(u.schemepath() == "file://");
     }
     {
         url u("file://test_file");
         REQUIRE(!u.empty());
         REQUIRE(u.scheme() == "file");
         REQUIRE(u.path() == "test_file");
+        REQUIRE(u.schemepath() == "file://test_file");
     }
     {
         url u("dir/file");

@@ -1,0 +1,12 @@
+{
+    "prefab" : "sprite_prefab.json",
+    "components" : {
+        "named" : {
+            "name" : "panel"
+        },
+        "sprite_renderer" : {
+            "mode" : "sliced",
+            "sprite" : "../sprites/panel_sprite.json"
+        }
+    }
+}

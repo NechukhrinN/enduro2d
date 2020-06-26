@@ -1,13 +1,17 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_math.hpp"
 using namespace e2d;
 
 TEST_CASE("aabb") {
+    {
+        REQUIRE(b3i::zero() == b3i(0,0,0,0,0,0));
+        REQUIRE(b3i::unit() == b3i(0,0,0,1,1,1));
+    }
     {
         REQUIRE(b3i().position == v3i(0,0,0));
         REQUIRE(b3i().size == v3i(0,0,0));
@@ -152,11 +156,6 @@ TEST_CASE("aabb") {
         REQUIRE(math::overlaps(b3i(0,0,0,10,10,10), b3i(-9,0,0,10,10,10)));
         REQUIRE(math::overlaps(b3i(0,0,0,10,10,10), b3i(0,-9,0,10,10,10)));
         REQUIRE(math::overlaps(b3i(0,0,0,10,10,10), b3i(-9,-9,0,10,10,10)));
-
-        REQUIRE_FALSE(math::contains_nan(b3i(1,2,3,4,5,6)));
-        REQUIRE_FALSE(math::contains_nan(b3f(1.f,2.f,3.f,4.f,5.f,6.f)));
-        REQUIRE(math::contains_nan(b3f(1.f,2.f,std::numeric_limits<f32>::quiet_NaN())));
-        REQUIRE(math::contains_nan(b3f(std::numeric_limits<f32>::infinity(), 1.f,2.f)));
     }
     {
         REQUIRE(math::normalized_to_point(b3f(10.f, 20.f, 30.f), v3f(0.f, 0.f, 0.f)) == v3f(0.f, 0.f, 0.f));

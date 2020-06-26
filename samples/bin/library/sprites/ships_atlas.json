@@ -1,0 +1,10 @@
+{
+    "texture" : "ships.png",
+    "sprites" : [{
+        "name" : "ship (1).png",
+        "texrect" : { "x" : 408, "y" : 399, "w" : 66, "h" : 113 }
+    },{
+        "name" : "ship (2).png",
+        "texrect" : { "x" : 408, "y" : 284, "w" : 66, "h" : 113 }
+    }]
+}

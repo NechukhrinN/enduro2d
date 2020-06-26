@@ -1,12 +1,12 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/high/assets/shader_asset.hpp>
 
-#include "json_asset.hpp"
+#include <enduro2d/high/assets/json_asset.hpp>
 #include <enduro2d/high/assets/text_asset.hpp>
 
 namespace
@@ -54,21 +54,32 @@ namespace
         const rapidjson::Value& root)
     {
         E2D_ASSERT(root.HasMember("vertex") && root["vertex"].IsString());
-        auto vertex_p = library.load_asset_async<text_asset>(
-            path::combine(parent_address, root["vertex"].GetString()));
+        auto vertex_a = path::combine(parent_address, root["vertex"].GetString());
+        auto vertex_p = library.load_asset_async<text_asset>(vertex_a);
 
         E2D_ASSERT(root.HasMember("fragment") && root["fragment"].IsString());
-        auto fragment_p = library.load_asset_async<text_asset>(
-            path::combine(parent_address, root["fragment"].GetString()));
+        auto fragment_a = path::combine(parent_address, root["fragment"].GetString());
+        auto fragment_p = library.load_asset_async<text_asset>(fragment_a);
 
         return stdex::make_tuple_promise(std::make_tuple(
             std::move(vertex_p),
             std::move(fragment_p)))
-        .then([](const std::tuple<
+        .then([
+            vertex_a = std::move(vertex_a),
+            fragment_a = std::move(fragment_a)
+        ](const std::tuple<
             text_asset::load_result,
             text_asset::load_result
         >& results){
-            return the<deferrer>().do_in_main_thread([results](){
+            return the<deferrer>().do_in_main_thread([
+                results,
+                vertex_a = std::move(vertex_a),
+                fragment_a = std::move(fragment_a)
+            ](){
+                E2D_PROFILER_SCOPE_EX("shader_asset.create_shader", {
+                    {"vertex_address", vertex_a},
+                    {"fragment_address", fragment_a}
+                });
                 const shader_ptr content = the<render>().create_shader(
                     std::get<0>(results)->content(),
                     std::get<1>(results)->content());
@@ -87,25 +98,42 @@ namespace e2d
         const library& library, str_view address)
     {
         return library.load_asset_async<json_asset>(address)
-            .then([
-                &library,
-                parent_address = path::parent_path(address)
-            ](const json_asset::load_result& shader_data){
-                return the<deferrer>().do_in_worker_thread([shader_data](){
-                    const rapidjson::Document& doc = shader_data->content();
-                    rapidjson::SchemaValidator validator(shader_asset_schema());
-                    if ( !doc.Accept(validator) ) {
-                        throw shader_asset_loading_exception();
-                    }
-                })
-                .then([&library, parent_address, shader_data](){
-                    return parse_shader(
-                        library, parent_address, shader_data->content());
-                })
-                .then([](auto&& content){
-                    return shader_asset::create(
-                        std::forward<decltype(content)>(content));
-                });
+        .then([
+            &library,
+            address = str(address),
+            parent_address = path::parent_path(address)
+        ](const json_asset::load_result& shader_data){
+            return the<deferrer>().do_in_worker_thread([address, shader_data](){
+                const rapidjson::Document& doc = *shader_data->content();
+                rapidjson::SchemaValidator validator(shader_asset_schema());
+
+                if ( doc.Accept(validator) ) {
+                    return;
+                }
+
+                rapidjson::StringBuffer sb;
+                if ( validator.GetInvalidDocumentPointer().StringifyUriFragment(sb) ) {
+                    the<debug>().error("ASSET: Failed to validate asset json:\n"
+                        "--> Address: %0\n"
+                        "--> Invalid schema keyword: %1\n"
+                        "--> Invalid document pointer: %2",
+                        address,
+                        validator.GetInvalidSchemaKeyword(),
+                        sb.GetString());
+                } else {
+                    the<debug>().error("ASSET: Failed to validate asset json");
+                }
+
+                throw shader_asset_loading_exception();
+            })
+            .then([&library, parent_address, shader_data](){
+                return parse_shader(
+                    library, parent_address, *shader_data->content());
+            })
+            .then([](auto&& content){
+                return shader_asset::create(
+                    std::forward<decltype(content)>(content));
             });
+        });
     }
 }

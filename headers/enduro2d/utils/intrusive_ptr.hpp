@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #pragma once
@@ -451,9 +451,7 @@ namespace e2d
 namespace std
 {
     template < typename T >
-    struct hash<e2d::intrusive_ptr<T>> final
-        : std::unary_function<e2d::intrusive_ptr<T>, std::size_t>
-    {
+    struct hash<e2d::intrusive_ptr<T>> final {
         std::size_t operator()(const e2d::intrusive_ptr<T>& p) const noexcept {
             return std::hash<T*>()(p.get());
         }

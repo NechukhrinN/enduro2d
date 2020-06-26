@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/high/assets/image_asset.hpp>
@@ -24,14 +24,22 @@ namespace e2d
         const library& library, str_view address)
     {
         return library.load_asset_async<binary_asset>(address)
-            .then([](const binary_asset::load_result& image_data){
-                return the<deferrer>().do_in_worker_thread([image_data](){
-                    image content;
-                    if ( !images::try_load_image(content, image_data->content()) ) {
-                        throw image_asset_loading_exception();
-                    }
-                    return image_asset::create(std::move(content));
+        .then([
+            address = str(address)
+        ](const binary_asset::load_result& image_data){
+            return the<deferrer>().do_in_worker_thread([
+                image_data,
+                address = std::move(address)
+            ](){
+                E2D_PROFILER_SCOPE_EX("image_asset.load_async", {
+                    {"address", address}
                 });
+                image content;
+                if ( !images::try_load_image(content, image_data->content()) ) {
+                    throw image_asset_loading_exception();
+                }
+                return image_asset::create(std::move(content));
             });
+        });
     }
 }

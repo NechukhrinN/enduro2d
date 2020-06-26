@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/utils/url.hpp>
@@ -42,11 +42,11 @@ namespace
         const str_view::size_type sep_pos =
             str_view_search(schemepath, scheme_separator, 0);
         if ( str_view::npos == sep_pos ) {
-            return std::make_pair(str(), schemepath);
+            return std::make_pair(str(), str(schemepath));
         }
         return std::make_pair(
-            schemepath.substr(0, sep_pos),
-            schemepath.substr(sep_pos + scheme_separator.length()));
+            str(schemepath.substr(0, sep_pos)),
+            str(schemepath.substr(sep_pos + scheme_separator.size())));
     }
 }
 
@@ -72,8 +72,8 @@ namespace e2d
         assign(schemepath);
     }
 
-    url::url(str_view scheme, str_view path) noexcept {
-        assign(scheme, path);
+    url::url(str scheme, str path) noexcept {
+        assign(std::move(scheme), std::move(path));
     }
 
     url& url::assign(url&& other) noexcept {
@@ -96,9 +96,9 @@ namespace e2d
         return assign(std::move(nscheme), std::move(npath));
     }
 
-    url& url::assign(str_view scheme, str_view path) noexcept {
-        scheme_ = scheme;
-        path_ = path;
+    url& url::assign(str scheme, str path) noexcept {
+        scheme_ = std::move(scheme);
+        path_ = std::move(path);
         return *this;
     }
 
@@ -133,6 +133,15 @@ namespace e2d
 
     const str& url::path() const noexcept {
         return path_;
+    }
+
+    str url::schemepath() const {
+        str result;
+        result.reserve(scheme_.size() + scheme_separator.size() + path_.size());
+        result.append(scheme_);
+        result.append(scheme_separator);
+        result.append(path_);
+        return result;
     }
 
     url& url::operator+=(str_view path) {

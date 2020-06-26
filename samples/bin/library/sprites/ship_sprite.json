@@ -1,0 +1,4 @@
+{
+    "texture" : "ships.png",
+    "texrect" : { "x" : 408, "y" : 284, "w" : 66, "h" : 113 }
+}

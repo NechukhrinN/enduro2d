@@ -1,7 +1,7 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include "_utils.hpp"
@@ -231,7 +231,7 @@ TEST_CASE("intrusive_ptr") {
         REQUIRE(obj_t::dtor_counter == 4u);
     }
     {
-        std::make_unique<obj_t>(10);
+        E2D_UNUSED(std::make_unique<obj_t>(10));
         intrusive_ptr<const obj_t> p1(new derived2_t());
         intrusive_ptr<const derived2_t> p2 = static_pointer_cast<const derived2_t>(p1);
         REQUIRE(p2->i == 21);
@@ -247,7 +247,7 @@ TEST_CASE("intrusive_ptr") {
     }
     {
         auto p1 = make_intrusive<obj_t>(10);
-        std::unordered_set<intrusive_ptr<obj_t>> s;
+        hash_set<intrusive_ptr<obj_t>> s;
         s.insert(p1);
     }
     {

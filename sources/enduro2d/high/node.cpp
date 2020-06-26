@@ -1,90 +1,110 @@
 /*******************************************************************************
  * This file is part of the "Enduro2D"
  * For conditions of distribution and use, see copyright notice in LICENSE.md
- * Copyright (C) 2018-2019, by Matvey Cherevko (blackmatov@gmail.com)
+ * Copyright (C) 2018-2020, by Matvey Cherevko (blackmatov@gmail.com)
  ******************************************************************************/
 
 #include <enduro2d/high/node.hpp>
-#include <enduro2d/high/world.hpp>
 
 namespace e2d
 {
-    node::node(world& world)
-    : entity_(world.registry().create_entity()) {}
-
-    node::node(const ecs::entity& entity)
-    : entity_(entity) {}
+    node::node(gobject owner)
+    : owner_(std::move(owner)) {}
 
     node::~node() noexcept {
         E2D_ASSERT(!parent_);
         remove_all_children();
     }
 
-    node_iptr node::create(world& world) {
-        return node_iptr(new node(world));
+    node_iptr node::create() {
+        return node_iptr(new node());
     }
 
-    node_iptr node::create(world& world, const node_iptr& parent) {
-        node_iptr child = create(world);
+    node_iptr node::create(const t2f& transform) {
+        node_iptr child = create();
+        child->transform(transform);
+        return child;
+    }
+
+    node_iptr node::create(const node_iptr& parent) {
+        node_iptr child = create();
         if ( parent ) {
             parent->add_child(child);
         }
         return child;
     }
 
-    node_iptr node::create(const ecs::entity& entity) {
-        return node_iptr(new node(entity));
+    node_iptr node::create(const node_iptr& parent, const t2f& transform) {
+        node_iptr child = create(parent);
+        child->transform(transform);
+        return child;
     }
 
-    node_iptr node::create(const ecs::entity& entity, const node_iptr& parent) {
-        node_iptr child = create(entity);
+    node_iptr node::create(gobject owner) {
+        return node_iptr(new node(std::move(owner)));
+    }
+
+    node_iptr node::create(gobject owner, const t2f& transform) {
+        node_iptr child = create(std::move(owner));
+        child->transform(transform);
+        return child;
+    }
+
+    node_iptr node::create(gobject owner, const node_iptr& parent) {
+        node_iptr child = create(std::move(owner));
         if ( parent ) {
             parent->add_child(child);
         }
         return child;
     }
 
-    ecs::entity node::entity() noexcept {
-        return entity_;
+    node_iptr node::create(gobject owner, const node_iptr& parent, const t2f& transform) {
+        node_iptr child = create(std::move(owner), parent);
+        child->transform(transform);
+        return child;
     }
 
-    ecs::const_entity node::entity() const noexcept {
-        return entity_;
+    void node::owner(gobject owner) noexcept {
+        owner_ = std::move(owner);
     }
 
-    void node::transform(const t3f& transform) noexcept {
+    gobject node::owner() const noexcept {
+        return owner_;
+    }
+
+    void node::transform(const t2f& transform) noexcept {
         transform_ = transform;
         mark_dirty_local_matrix_();
     }
 
-    const t3f& node::transform() const noexcept {
+    const t2f& node::transform() const noexcept {
         return transform_;
     }
 
-    void node::translation(const v3f& translation) noexcept {
+    void node::translation(const v2f& translation) noexcept {
         transform_.translation = translation;
         mark_dirty_local_matrix_();
     }
 
-    const v3f& node::translation() const noexcept {
+    const v2f& node::translation() const noexcept {
         return transform_.translation;
     }
 
-    void node::rotation(const q4f& rotation) noexcept {
+    void node::rotation(f32 rotation) noexcept {
         transform_.rotation = rotation;
         mark_dirty_local_matrix_();
     }
 
-    const q4f& node::rotation() const noexcept {
+    f32 node::rotation() const noexcept {
         return transform_.rotation;
     }
 
-    void node::scale(const v3f& scale) noexcept {
+    void node::scale(const v2f& scale) noexcept {
         transform_.scale = scale;
         mark_dirty_local_matrix_();
     }
 
-    const v3f& node::scale() const noexcept {
+    const v2f& node::scale() const noexcept {
         return transform_.scale;
     }
 
@@ -100,6 +120,14 @@ namespace e2d
             update_world_matrix_();
         }
         return world_matrix_;
+    }
+
+    v4f node::local_to_world(const v4f& local) const noexcept {
+        return local * world_matrix();
+    }
+
+    v4f node::world_to_local(const v4f& world) const noexcept {
+        return world * math::inversed(world_matrix()).first;
     }
 
     node_iptr node::root() noexcept {
@@ -179,14 +207,25 @@ namespace e2d
         return count;
     }
 
-    bool node::add_child(const node_iptr& child) noexcept {
+    bool node::add_child(
+        const node_iptr& child) noexcept
+    {
         return add_child_to_front(child);
+    }
+
+    bool node::add_child_at(
+        const node_iptr& child,
+        std::size_t index) noexcept
+    {
+        return index == 0u
+            ? add_child_to_back(child)
+            : add_child_after(child_at(index - 1u), child);
     }
 
     bool node::add_child_to_back(
         const node_iptr& child) noexcept
     {
-        if ( !child ) {
+        if ( !child || child == this ) {
             return false;
         }
 
@@ -205,7 +244,7 @@ namespace e2d
     bool node::add_child_to_front(
         const node_iptr& child) noexcept
     {
-        if ( !child ) {
+        if ( !child || child == this ) {
             return false;
         }
 
@@ -289,6 +328,41 @@ namespace e2d
                 intrusive_ptr_release(n);
             });
         return true;
+    }
+
+    node_iptr node::remove_child_at(std::size_t index) noexcept {
+        node_iptr child = child_at(index);
+        return remove_child(child)
+            ? child
+            : node_iptr();
+    }
+
+    bool node::swap_children(
+        const node_iptr& child_l,
+        const node_iptr& child_r) noexcept
+    {
+        if ( !child_l || !child_r ) {
+            return false;
+        }
+
+        if ( child_l->parent_ != this || child_r->parent_ != this ) {
+            return false;
+        }
+
+        node_children::iterator_swap(
+            node_children::iterator_to(*child_l),
+            node_children::iterator_to(*child_r));
+
+        return true;
+    }
+
+    bool node::swap_children_at(
+        std::size_t child_l,
+        std::size_t child_r) noexcept
+    {
+        return swap_children(
+            child_at(child_l),
+            child_at(child_r));
     }
 
     bool node::send_backward() noexcept {
@@ -386,6 +460,36 @@ namespace e2d
         }
         return const_node_iptr(&*iter);
     }
+
+    node_iptr node::child_at(std::size_t index) noexcept {
+        node_iptr child = first_child();
+        for ( std::size_t i = 0; i < index && child; ++i ) {
+            child = child->next_sibling();
+        }
+        return child;
+    }
+
+    const_node_iptr node::child_at(std::size_t index) const noexcept {
+        const_node_iptr child = first_child();
+        for ( std::size_t i = 0; i < index && child; ++i ) {
+            child = child->next_sibling();
+        }
+        return child;
+    }
+
+    std::pair<std::size_t, bool> node::child_index(
+        const const_node_iptr& child) const noexcept
+    {
+        if ( !child || child->parent_ != this ) {
+            return {std::size_t(-1), false};
+        }
+
+        const auto distance = std::distance(
+            children_.begin(),
+            node_children::iterator_to(*child));
+
+        return {math::numeric_cast<std::size_t>(distance), true};
+    }
 }
 
 namespace e2d
@@ -410,7 +514,43 @@ namespace e2d
 
     void node::update_world_matrix_() const noexcept {
         world_matrix_ = parent_
-            ? parent_->world_matrix() * local_matrix()
+            ? local_matrix() * parent_->world_matrix()
             : local_matrix();
+    }
+}
+
+namespace e2d::nodes
+{
+    options& options::reversed(bool value) noexcept {
+        if ( value != reversed() ) {
+            math::flip_flags_inplace(flags_, fm_reversed);
+        }
+        return *this;
+    }
+
+    options& options::recursive(bool value) noexcept {
+        if ( value != recursive() ) {
+            math::flip_flags_inplace(flags_, fm_recursive);
+        }
+        return *this;
+    }
+
+    options& options::include_root(bool value) noexcept {
+        if ( value != include_root() ) {
+            math::flip_flags_inplace(flags_, fm_include_root);
+        }
+        return *this;
+    }
+
+    bool options::reversed() const noexcept {
+        return math::check_any_flags(flags_, fm_reversed);
+    }
+
+    bool options::recursive() const noexcept {
+        return math::check_any_flags(flags_, fm_recursive);
+    }
+
+    bool options::include_root() const noexcept {
+        return math::check_any_flags(flags_, fm_include_root);
     }
 }
